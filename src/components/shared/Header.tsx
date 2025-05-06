@@ -1,13 +1,33 @@
 import { useState, useRef, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { ShoppingBag, Heart, User, LogOut } from 'lucide-react';
+import { ShoppingBag, Heart, User, LogOut, Bell, LayoutDashboard } from 'lucide-react';
 import Logo from '@/assets/logo.png';
 import { useAuth } from '../../contexts/AuthContext';
+import { supabase } from '../../lib/supabase';
 
 const Header = () => {
-  const { user, signOut } = useAuth();
+  const { user, isAdmin, signOut } = useAuth();
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
+  const [fullName, setFullName] = useState<string>('');
   const dropdownRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const fetchUserProfile = async () => {
+      if (user) {
+        const { data, error } = await supabase
+          .from('users')
+          .select('full_name')
+          .eq('id', user.id)
+          .single();
+
+        if (!error && data) {
+          setFullName(data.full_name);
+        }
+      }
+    };
+
+    fetchUserProfile();
+  }, [user]);
 
   // Close dropdown when clicking outside
   useEffect(() => {
@@ -43,20 +63,43 @@ const Header = () => {
         <div className="flex items-center space-x-4">
           {user ? (
             <>
-              <Link 
-                to="/wishlist"
-                className="p-2 hover:text-[#8B5E3C] transition-colors"
-                aria-label="Wishlist"
-              >
-                <Heart size={20} />
-              </Link>
-              <Link 
-                to="/cart"
-                className="p-2 hover:text-[#8B5E3C] transition-colors"
-                aria-label="Cart"
-              >
-                <ShoppingBag size={20} />
-              </Link>
+              {isAdmin ? (
+                <>
+                  <Link 
+                    to="/dashboard"
+                    className="p-2 hover:text-[#8B5E3C] transition-colors"
+                    aria-label="Dashboard"
+                  >
+                    <LayoutDashboard size={20} />
+                  </Link>
+                  <button 
+                    className="p-2 hover:text-[#8B5E3C] transition-colors relative"
+                    aria-label="Notifications"
+                  >
+                    <Bell size={20} />
+                    <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs rounded-full h-4 w-4 flex items-center justify-center">
+                      3
+                    </span>
+                  </button>
+                </>
+              ) : (
+                <>
+                  <Link 
+                    to="/wishlist"
+                    className="p-2 hover:text-[#8B5E3C] transition-colors"
+                    aria-label="Wishlist"
+                  >
+                    <Heart size={20} />
+                  </Link>
+                  <Link 
+                    to="/cart"
+                    className="p-2 hover:text-[#8B5E3C] transition-colors"
+                    aria-label="Cart"
+                  >
+                    <ShoppingBag size={20} />
+                  </Link>
+                </>
+              )}
               <div className="relative" ref={dropdownRef}>
                 <button 
                   className="p-2 hover:text-[#8B5E3C] transition-colors"
@@ -69,14 +112,36 @@ const Header = () => {
                 {isDropdownOpen && (
                   <div className="absolute right-0 mt-2 w-48 bg-white rounded-md shadow-lg py-1 border border-[#E5E5E5]">
                     <div className="px-4 py-2 text-sm text-[#1A1A1A] border-b border-[#E5E5E5]">
-                      {user.email}
+                      {fullName || user.email}
+                      {isAdmin && (
+                        <span className="ml-2 px-2 py-0.5 text-xs bg-[#8B5E3C] text-white rounded-full">
+                          Admin
+                        </span>
+                      )}
                     </div>
-                    <Link 
-                      to="/profile" 
-                      className="block px-4 py-2 text-sm text-[#1A1A1A] hover:bg-[#F9F9F9]"
-                    >
-                      Profile
-                    </Link>
+                    {isAdmin ? (
+                      <>
+                        <Link 
+                          to="/dashboard" 
+                          className="block px-4 py-2 text-sm text-[#1A1A1A] hover:bg-[#F9F9F9]"
+                        >
+                          Dashboard
+                        </Link>
+                        <Link 
+                          to="/dashboard/settings" 
+                          className="block px-4 py-2 text-sm text-[#1A1A1A] hover:bg-[#F9F9F9]"
+                        >
+                          Settings
+                        </Link>
+                      </>
+                    ) : (
+                      <Link 
+                        to="/profile" 
+                        className="block px-4 py-2 text-sm text-[#1A1A1A] hover:bg-[#F9F9F9]"
+                      >
+                        Profile
+                      </Link>
+                    )}
                     <button
                       onClick={() => {
                         signOut();

@@ -39,18 +39,39 @@ const LoginForm = () => {
   const onSubmit = async (values: z.infer<typeof formSchema>) => {
     setIsLoading(true);
     try {
-      const { error } = await supabase.auth.signInWithPassword({
+      const { error: signInError, data } = await supabase.auth.signInWithPassword({
         email: values.email,
         password: values.password,
       });
 
-      if (error) {
+      if (signInError) {
         form.setError("root", {
-          message: error.message
+          message: signInError.message
         });
+        return;
+      }
+
+      // Check if user is admin
+      const { data: userData, error: userError } = await supabase
+        .from('users')
+        .select('is_admin')
+        .eq('id', data.user.id)
+        .single();
+
+      if (userError) {
+        form.setError("root", {
+          message: "Failed to fetch user data"
+        });
+        return;
+      }
+
+      // Redirect based on admin status
+      if (userData.is_admin) {
+        navigate('/dashboard');
       } else {
         navigate('/');
       }
+
     } catch (error) {
       form.setError("root", {
         message: error instanceof Error ? error.message : "Failed to sign in"
@@ -98,7 +119,15 @@ const LoginForm = () => {
               name="password"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel className="text-[#1A1A1A]">Password</FormLabel>
+                  <div className="flex items-center justify-between">
+                    <FormLabel className="text-[#1A1A1A]">Password</FormLabel>
+                    <Link 
+                      to="/forgot-password" 
+                      className="text-sm text-[#8B5E3C] hover:underline"
+                    >
+                      Forgot password?
+                    </Link>
+                  </div>
                   <FormControl>
                     <div className="relative">
                       <Input
