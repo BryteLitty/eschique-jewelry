@@ -1,11 +1,11 @@
 import { Link, useLocation } from 'react-router-dom';
-import { LayoutDashboard, ShoppingBag, Heart, Settings, LogOut } from 'lucide-react';
+import { LayoutDashboard, ShoppingBag, Heart, Settings, LogOut, Package, Tags } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import { cn } from '../../lib/utils';
 
 const Sidebar = () => {
   const location = useLocation();
-  const { signOut } = useAuth();
+  const { signOut, isAdmin } = useAuth();
 
   const navigation = [
     {
@@ -13,6 +13,18 @@ const Sidebar = () => {
       href: '/dashboard',
       icon: LayoutDashboard
     },
+    ...(isAdmin ? [
+      {
+        name: 'Products',
+        href: '/dashboard/products',
+        icon: Package
+      },
+      {
+        name: 'Categories',
+        href: '/dashboard/categories',
+        icon: Tags
+      },
+    ] : []),
     {
       name: 'Orders',
       href: '/dashboard/orders',

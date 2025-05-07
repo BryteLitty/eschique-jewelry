@@ -4,12 +4,16 @@ import { ShoppingBag, Heart, User, LogOut, Bell, LayoutDashboard } from 'lucide-
 import Logo from '@/assets/logo.png';
 import { useAuth } from '../../contexts/AuthContext';
 import { supabase } from '../../lib/supabase';
+import { useCart } from '../../contexts/CartContext';
+import CartDropdown from '../cart/CartDropdown';
 
 const Header = () => {
   const { user, isAdmin, signOut } = useAuth();
+  const { totalItems } = useCart();
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const [fullName, setFullName] = useState<string>('');
   const dropdownRef = useRef<HTMLDivElement>(null);
+  const [isCartOpen, setIsCartOpen] = useState(false);
 
   useEffect(() => {
     const fetchUserProfile = async () => {
@@ -61,6 +65,18 @@ const Header = () => {
 
         {/* Actions */}
         <div className="flex items-center space-x-4">
+          <button
+            onClick={() => setIsCartOpen(true)}
+            className="relative p-2 hover:bg-gray-100 rounded-full"
+          >
+            <ShoppingBag className="w-6 h-6" />
+            {totalItems > 0 && (
+              <span className="absolute -top-1 -right-1 bg-[#8B5E3C] text-white text-xs w-5 h-5 flex items-center justify-center rounded-full">
+                {totalItems}
+              </span>
+            )}
+          </button>
+
           {user ? (
             <>
               {isAdmin ? (
@@ -90,13 +106,6 @@ const Header = () => {
                     aria-label="Wishlist"
                   >
                     <Heart size={20} />
-                  </Link>
-                  <Link 
-                    to="/cart"
-                    className="p-2 hover:text-[#8B5E3C] transition-colors"
-                    aria-label="Cart"
-                  >
-                    <ShoppingBag size={20} />
                   </Link>
                 </>
               )}
@@ -166,6 +175,9 @@ const Header = () => {
           )}
         </div>
       </div>
+
+      {/* Cart Dropdown */}
+      <CartDropdown isOpen={isCartOpen} onClose={() => setIsCartOpen(false)} />
     </header>
   );
 };
