@@ -1,0 +1,196 @@
+import { useAuth } from '../../contexts/AuthContext';
+import { Card, CardContent, CardHeader, CardTitle } from "../../components/ui/card";
+import { Button } from "../../components/ui/button";
+import { useNavigate } from 'react-router-dom';
+import { Settings, ShoppingBag, Heart, Package, CreditCard, MapPin, User as UserIcon } from 'lucide-react';
+
+const UserDashboard = () => {
+  const { user } = useAuth();
+  const navigate = useNavigate();
+
+  const quickActions = [
+    {
+      title: 'My Orders',
+      description: 'View and track your orders',
+      icon: Package,
+      onClick: () => navigate('/orders'),
+      color: 'bg-blue-50 text-blue-600',
+    },
+    {
+      title: 'Wishlist',
+      description: 'View your saved items',
+      icon: Heart,
+      onClick: () => navigate('/wishlist'),
+      color: 'bg-pink-50 text-pink-600',
+    },
+    {
+      title: 'Settings',
+      description: 'Manage your account settings',
+      icon: Settings,
+      onClick: () => navigate('/settings'),
+      color: 'bg-purple-50 text-purple-600',
+    },
+  ];
+
+  const stats = [
+    {
+      title: 'Total Orders',
+      value: '0',
+      icon: ShoppingBag,
+      color: 'bg-green-50 text-green-600',
+    },
+    {
+      title: 'Wishlist Items',
+      value: '0',
+      icon: Heart,
+      color: 'bg-pink-50 text-pink-600',
+    },
+    {
+      title: 'Saved Addresses',
+      value: user?.user_metadata?.address ? '1' : '0',
+      icon: MapPin,
+      color: 'bg-blue-50 text-blue-600',
+    },
+  ];
+
+  return (
+    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      {/* Welcome Section */}
+      <div className="bg-gradient-to-r from-[#8B5E3C] to-[#A67B5B] rounded-lg p-8 text-white mb-8">
+        <div className="flex items-center space-x-4">
+          <div className="bg-white/20 p-3 rounded-full">
+            <UserIcon className="h-8 w-8" />
+          </div>
+          <div>
+            <h1 className="text-3xl font-bold">Welcome back, {user?.user_metadata?.full_name || 'User'}</h1>
+            <p className="text-white/80 mt-1">Manage your account and view your orders</p>
+          </div>
+        </div>
+      </div>
+
+      {/* Stats Grid */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+        {stats.map((stat) => (
+          <Card key={stat.title} className="overflow-hidden">
+            <CardContent className="p-6">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm text-[#666666]">{stat.title}</p>
+                  <p className="text-2xl font-bold mt-1">{stat.value}</p>
+                </div>
+                <div className={`p-3 rounded-lg ${stat.color}`}>
+                  <stat.icon className="h-6 w-6" />
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        ))}
+      </div>
+
+      <div className="grid gap-8 md:grid-cols-2">
+        {/* User Info Card */}
+        <Card>
+          <CardHeader>
+            <CardTitle>Account Information</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-6">
+              <div className="flex items-center space-x-4">
+                <div className="bg-[#8B5E3C]/10 p-3 rounded-lg">
+                  <UserIcon className="h-6 w-6 text-[#8B5E3C]" />
+                </div>
+                <div>
+                  <p className="text-sm text-[#666666]">Full Name</p>
+                  <p className="font-medium">{user?.user_metadata?.full_name || 'Not set'}</p>
+                </div>
+              </div>
+              <div className="flex items-center space-x-4">
+                <div className="bg-[#8B5E3C]/10 p-3 rounded-lg">
+                  <CreditCard className="h-6 w-6 text-[#8B5E3C]" />
+                </div>
+                <div>
+                  <p className="text-sm text-[#666666]">Email</p>
+                  <p className="font-medium">{user?.email}</p>
+                </div>
+              </div>
+              <div className="flex items-center space-x-4">
+                <div className="bg-[#8B5E3C]/10 p-3 rounded-lg">
+                  <MapPin className="h-6 w-6 text-[#8B5E3C]" />
+                </div>
+                <div>
+                  <p className="text-sm text-[#666666]">Address</p>
+                  <p className="font-medium">
+                    {user?.user_metadata?.address ? (
+                      <>
+                        {user.user_metadata.address}
+                        <br />
+                        {user.user_metadata.city}, {user.user_metadata.state} {user.user_metadata.zip_code}
+                      </>
+                    ) : (
+                      'Not set'
+                    )}
+                  </p>
+                </div>
+              </div>
+              <Button 
+                variant="outline" 
+                onClick={() => navigate('/settings')}
+                className="w-full"
+              >
+                Edit Profile
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Quick Actions */}
+        <Card>
+          <CardHeader>
+            <CardTitle>Quick Actions</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-4">
+              {quickActions.map((action) => (
+                <button
+                  key={action.title}
+                  onClick={action.onClick}
+                  className="w-full flex items-center space-x-4 p-4 rounded-lg hover:bg-gray-50 transition-colors"
+                >
+                  <div className={`p-3 rounded-lg ${action.color}`}>
+                    <action.icon className="h-6 w-6" />
+                  </div>
+                  <div className="text-left">
+                    <h3 className="font-medium">{action.title}</h3>
+                    <p className="text-sm text-[#666666]">{action.description}</p>
+                  </div>
+                </button>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Recent Orders */}
+      <Card className="mt-8">
+        <CardHeader>
+          <CardTitle>Recent Orders</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="text-center py-12">
+            <ShoppingBag className="h-16 w-16 text-[#666666] mx-auto mb-4" />
+            <h3 className="text-lg font-medium mb-2">No orders yet</h3>
+            <p className="text-[#666666] mb-6">Start shopping to see your orders here</p>
+            <Button 
+              onClick={() => navigate('/products')}
+              className="bg-[#8B5E3C] hover:bg-[#8B5E3C]/90"
+            >
+              Start Shopping
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
+    </div>
+  );
+};
+
+export default UserDashboard; 

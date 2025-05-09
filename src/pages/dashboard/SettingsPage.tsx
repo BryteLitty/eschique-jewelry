@@ -1,336 +1,226 @@
 import { useState } from 'react';
-import { useForm } from 'react-hook-form';
-import { zodResolver } from '@hookform/resolvers/zod';
-import * as z from 'zod';
-import { supabase } from '../../lib/supabase';
+import { Card, CardContent, CardHeader, CardTitle } from "../../components/ui/card";
+import { Input } from "../../components/ui/input";
+import { Button } from "../../components/ui/button";
+import { Label } from "../../components/ui/label";
 import { useAuth } from '../../contexts/AuthContext';
-import { Button } from '../../components/ui/button';
-import { Input } from '../../components/ui/input';
-import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/card';
-import { Eye, EyeOff } from 'lucide-react';
+import { supabase } from '../../lib/supabase';
+import { toast } from 'sonner';
 
-const profileSchema = z.object({
-  full_name: z.string().min(1, 'Name is required'),
-  email: z.string().email('Invalid email address'),
-  current_password: z.string().optional(),
-  new_password: z.string().min(8, 'Password must be at least 8 characters').optional(),
-  confirm_password: z.string().optional(),
-}).refine((data) => {
-  if (data.new_password && !data.current_password) {
-    return false;
-  }
-  return true;
-}, {
-  message: "Current password is required to set a new password",
-  path: ["current_password"],
-}).refine((data) => {
-  if (data.new_password && data.new_password !== data.confirm_password) {
-    return false;
-  }
-  return true;
-}, {
-  message: "Passwords don't match",
-  path: ["confirm_password"],
-});
-
-const storeSchema = z.object({
-  store_name: z.string().min(1, 'Store name is required'),
-  store_description: z.string().min(1, 'Store description is required'),
-  contact_email: z.string().email('Invalid email address'),
-  contact_phone: z.string().optional(),
-  address: z.string().optional(),
-});
-
-export default function SettingsPage() {
+const SettingsPage = () => {
   const { user } = useAuth();
-  const [isLoading, setIsLoading] = useState(false);
-  const [showPassword, setShowPassword] = useState(false);
-  const [showNewPassword, setShowNewPassword] = useState(false);
-  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
-  const [message, setMessage] = useState<{ type: 'success' | 'error', text: string } | null>(null);
+  const [loading, setLoading] = useState(false);
 
-  const profileForm = useForm({
-    resolver: zodResolver(profileSchema),
-    defaultValues: {
-      full_name: '',
-      email: user?.email || '',
-      current_password: '',
-      new_password: '',
-      confirm_password: '',
-    },
+  const [formData, setFormData] = useState({
+    fullName: user?.user_metadata?.full_name || '',
+    email: user?.email || '',
+    address: user?.user_metadata?.address || '',
+    city: user?.user_metadata?.city || '',
+    state: user?.user_metadata?.state || '',
+    zipCode: user?.user_metadata?.zip_code || '',
+    currentPassword: '',
+    newPassword: '',
+    confirmPassword: '',
   });
 
-  const storeForm = useForm({
-    resolver: zodResolver(storeSchema),
-    defaultValues: {
-      store_name: '',
-      store_description: '',
-      contact_email: '',
-      contact_phone: '',
-      address: '',
-    },
-  });
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const { name, value } = e.target;
+    setFormData(prev => ({
+      ...prev,
+      [name]: value
+    }));
+  };
 
-  const onProfileSubmit = async (data: z.infer<typeof profileSchema>) => {
+  const handleProfileUpdate = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setLoading(true);
+
     try {
-      setIsLoading(true);
-      setMessage(null);
+      const { error } = await supabase.auth.updateUser({
+        data: {
+          full_name: formData.fullName,
+          address: formData.address,
+          city: formData.city,
+          state: formData.state,
+          zip_code: formData.zipCode,
+        }
+      });
 
-      // Update profile in users table
-      const { error: profileError } = await supabase
-        .from('users')
-        .update({ full_name: data.full_name })
-        .eq('id', user?.id);
-
-      if (profileError) throw profileError;
-
-      // Update email if changed
-      if (data.email !== user?.email) {
-        const { error: emailError } = await supabase.auth.updateUser({
-          email: data.email,
-        });
-        if (emailError) throw emailError;
-      }
-
-      // Update password if provided
-      if (data.new_password) {
-        const { error: passwordError } = await supabase.auth.updateUser({
-          password: data.new_password,
-        });
-        if (passwordError) throw passwordError;
-      }
-
-      setMessage({ type: 'success', text: 'Profile updated successfully' });
-      profileForm.reset();
+      if (error) throw error;
+      toast.success('Profile updated successfully');
     } catch (error) {
+      toast.error('Failed to update profile');
       console.error('Error updating profile:', error);
-      setMessage({ type: 'error', text: 'Failed to update profile' });
     } finally {
-      setIsLoading(false);
+      setLoading(false);
     }
   };
 
-  const onStoreSubmit = async (data: z.infer<typeof storeSchema>) => {
-    try {
-      setIsLoading(true);
-      setMessage(null);
+  const handlePasswordUpdate = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setLoading(true);
 
-      const { error } = await supabase
-        .from('store_settings')
-        .upsert({
-          id: 1, // Assuming single store setup
-          ...data,
-        });
+    if (formData.newPassword !== formData.confirmPassword) {
+      toast.error('New passwords do not match');
+      setLoading(false);
+      return;
+    }
+
+    try {
+      const { error } = await supabase.auth.updateUser({
+        password: formData.newPassword
+      });
 
       if (error) throw error;
-
-      setMessage({ type: 'success', text: 'Store settings updated successfully' });
+      toast.success('Password updated successfully');
+      setFormData(prev => ({
+        ...prev,
+        currentPassword: '',
+        newPassword: '',
+        confirmPassword: ''
+      }));
     } catch (error) {
-      console.error('Error updating store settings:', error);
-      setMessage({ type: 'error', text: 'Failed to update store settings' });
+      toast.error('Failed to update password');
+      console.error('Error updating password:', error);
     } finally {
-      setIsLoading(false);
+      setLoading(false);
     }
   };
 
   return (
-    <div className="p-6 space-y-6">
-      <h1 className="text-2xl font-bold">Settings</h1>
+    <div className="space-y-8 max-w-4xl mx-auto">
+      <div>
+        <h1 className="text-3xl font-bold text-[#1A1A1A]">Settings</h1>
+        <p className="text-[#666666] mt-2">Manage your account settings</p>
+      </div>
 
-      {message && (
-        <div className={`p-4 rounded-md ${
-          message.type === 'success' ? 'bg-green-50 text-green-800' : 'bg-red-50 text-red-800'
-        }`}>
-          {message.text}
-        </div>
-      )}
-
-      <div className="grid gap-6 md:grid-cols-2">
-        {/* Profile Settings */}
+      <div className="grid gap-8">
+        {/* Profile Information */}
         <Card>
           <CardHeader>
-            <CardTitle>Profile Settings</CardTitle>
+            <CardTitle>Profile Information</CardTitle>
           </CardHeader>
           <CardContent>
-            <form onSubmit={profileForm.handleSubmit(onProfileSubmit)} className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium mb-1">Full Name</label>
+            <form onSubmit={handleProfileUpdate} className="space-y-4">
+              <div className="grid gap-4 md:grid-cols-2">
+                <div className="space-y-2">
+                  <Label htmlFor="fullName">Full Name</Label>
+                  <Input
+                    id="fullName"
+                    name="fullName"
+                    value={formData.fullName}
+                    onChange={handleInputChange}
+                    placeholder="Enter your full name"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="email">Email</Label>
+                  <Input
+                    id="email"
+                    name="email"
+                    value={formData.email}
+                    disabled
+                    className="bg-gray-50"
+                  />
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="address">Address</Label>
                 <Input
-                  {...profileForm.register('full_name')}
-                  className="focus:ring-primary/20 focus:border-primary"
+                  id="address"
+                  name="address"
+                  value={formData.address}
+                  onChange={handleInputChange}
+                  placeholder="Enter your address"
                 />
-                {profileForm.formState.errors.full_name && (
-                  <p className="text-red-500 text-sm mt-1">
-                    {profileForm.formState.errors.full_name.message}
-                  </p>
-                )}
               </div>
 
-              <div>
-                <label className="block text-sm font-medium mb-1">Email</label>
-                <Input
-                  {...profileForm.register('email')}
-                  type="email"
-                  className="focus:ring-primary/20 focus:border-primary"
-                />
-                {profileForm.formState.errors.email && (
-                  <p className="text-red-500 text-sm mt-1">
-                    {profileForm.formState.errors.email.message}
-                  </p>
-                )}
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium mb-1">Current Password</label>
-                <div className="relative">
+              <div className="grid gap-4 md:grid-cols-3">
+                <div className="space-y-2">
+                  <Label htmlFor="city">City</Label>
                   <Input
-                    {...profileForm.register('current_password')}
-                    type={showPassword ? 'text' : 'password'}
-                    className="focus:ring-primary/20 focus:border-primary pr-10"
+                    id="city"
+                    name="city"
+                    value={formData.city}
+                    onChange={handleInputChange}
+                    placeholder="Enter your city"
                   />
-                  <button
-                    type="button"
-                    onClick={() => setShowPassword(!showPassword)}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500"
-                  >
-                    {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                  </button>
                 </div>
-                {profileForm.formState.errors.current_password && (
-                  <p className="text-red-500 text-sm mt-1">
-                    {profileForm.formState.errors.current_password.message}
-                  </p>
-                )}
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium mb-1">New Password</label>
-                <div className="relative">
+                <div className="space-y-2">
+                  <Label htmlFor="state">State</Label>
                   <Input
-                    {...profileForm.register('new_password')}
-                    type={showNewPassword ? 'text' : 'password'}
-                    className="focus:ring-primary/20 focus:border-primary pr-10"
+                    id="state"
+                    name="state"
+                    value={formData.state}
+                    onChange={handleInputChange}
+                    placeholder="Enter your state"
                   />
-                  <button
-                    type="button"
-                    onClick={() => setShowNewPassword(!showNewPassword)}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500"
-                  >
-                    {showNewPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                  </button>
                 </div>
-                {profileForm.formState.errors.new_password && (
-                  <p className="text-red-500 text-sm mt-1">
-                    {profileForm.formState.errors.new_password.message}
-                  </p>
-                )}
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium mb-1">Confirm New Password</label>
-                <div className="relative">
+                <div className="space-y-2">
+                  <Label htmlFor="zipCode">ZIP Code</Label>
                   <Input
-                    {...profileForm.register('confirm_password')}
-                    type={showConfirmPassword ? 'text' : 'password'}
-                    className="focus:ring-primary/20 focus:border-primary pr-10"
+                    id="zipCode"
+                    name="zipCode"
+                    value={formData.zipCode}
+                    onChange={handleInputChange}
+                    placeholder="Enter your ZIP code"
                   />
-                  <button
-                    type="button"
-                    onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500"
-                  >
-                    {showConfirmPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                  </button>
                 </div>
-                {profileForm.formState.errors.confirm_password && (
-                  <p className="text-red-500 text-sm mt-1">
-                    {profileForm.formState.errors.confirm_password.message}
-                  </p>
-                )}
               </div>
 
-              <Button type="submit" className="w-full" disabled={isLoading}>
-                {isLoading ? 'Saving...' : 'Save Changes'}
+              <Button type="submit" disabled={loading} className="w-full md:w-auto">
+                {loading ? 'Saving...' : 'Save Changes'}
               </Button>
             </form>
           </CardContent>
         </Card>
 
-        {/* Store Settings */}
+        {/* Password Update */}
         <Card>
           <CardHeader>
-            <CardTitle>Store Settings</CardTitle>
+            <CardTitle>Update Password</CardTitle>
           </CardHeader>
           <CardContent>
-            <form onSubmit={storeForm.handleSubmit(onStoreSubmit)} className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium mb-1">Store Name</label>
+            <form onSubmit={handlePasswordUpdate} className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="currentPassword">Current Password</Label>
                 <Input
-                  {...storeForm.register('store_name')}
-                  className="focus:ring-primary/20 focus:border-primary"
+                  id="currentPassword"
+                  name="currentPassword"
+                  type="password"
+                  value={formData.currentPassword}
+                  onChange={handleInputChange}
+                  placeholder="Enter your current password"
                 />
-                {storeForm.formState.errors.store_name && (
-                  <p className="text-red-500 text-sm mt-1">
-                    {storeForm.formState.errors.store_name.message}
-                  </p>
-                )}
               </div>
 
-              <div>
-                <label className="block text-sm font-medium mb-1">Store Description</label>
+              <div className="space-y-2">
+                <Label htmlFor="newPassword">New Password</Label>
                 <Input
-                  {...storeForm.register('store_description')}
-                  className="focus:ring-primary/20 focus:border-primary"
+                  id="newPassword"
+                  name="newPassword"
+                  type="password"
+                  value={formData.newPassword}
+                  onChange={handleInputChange}
+                  placeholder="Enter your new password"
                 />
-                {storeForm.formState.errors.store_description && (
-                  <p className="text-red-500 text-sm mt-1">
-                    {storeForm.formState.errors.store_description.message}
-                  </p>
-                )}
               </div>
 
-              <div>
-                <label className="block text-sm font-medium mb-1">Contact Email</label>
+              <div className="space-y-2">
+                <Label htmlFor="confirmPassword">Confirm New Password</Label>
                 <Input
-                  {...storeForm.register('contact_email')}
-                  type="email"
-                  className="focus:ring-primary/20 focus:border-primary"
+                  id="confirmPassword"
+                  name="confirmPassword"
+                  type="password"
+                  value={formData.confirmPassword}
+                  onChange={handleInputChange}
+                  placeholder="Confirm your new password"
                 />
-                {storeForm.formState.errors.contact_email && (
-                  <p className="text-red-500 text-sm mt-1">
-                    {storeForm.formState.errors.contact_email.message}
-                  </p>
-                )}
               </div>
 
-              <div>
-                <label className="block text-sm font-medium mb-1">Contact Phone</label>
-                <Input
-                  {...storeForm.register('contact_phone')}
-                  className="focus:ring-primary/20 focus:border-primary"
-                />
-                {storeForm.formState.errors.contact_phone && (
-                  <p className="text-red-500 text-sm mt-1">
-                    {storeForm.formState.errors.contact_phone.message}
-                  </p>
-                )}
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium mb-1">Address</label>
-                <Input
-                  {...storeForm.register('address')}
-                  className="focus:ring-primary/20 focus:border-primary"
-                />
-                {storeForm.formState.errors.address && (
-                  <p className="text-red-500 text-sm mt-1">
-                    {storeForm.formState.errors.address.message}
-                  </p>
-                )}
-              </div>
-
-              <Button type="submit" className="w-full" disabled={isLoading}>
-                {isLoading ? 'Saving...' : 'Save Changes'}
+              <Button type="submit" disabled={loading} className="w-full md:w-auto">
+                {loading ? 'Updating...' : 'Update Password'}
               </Button>
             </form>
           </CardContent>
@@ -338,4 +228,6 @@ export default function SettingsPage() {
       </div>
     </div>
   );
-} 
+};
+
+export default SettingsPage; 

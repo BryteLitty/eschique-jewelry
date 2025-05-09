@@ -1,7 +1,32 @@
 import { Card, CardContent, CardHeader, CardTitle } from "../../components/ui/card";
 import { ShoppingBag, Heart, DollarSign, TrendingUp } from "lucide-react";
+import { useWishlistAnalytics } from '../../hooks/useWishlistAnalytics';
+import { useEffect, useState } from 'react';
+import { supabase } from '../../lib/supabase';
 
 const DashboardHomepage = () => {
+  const { analytics, loading: wishlistLoading } = useWishlistAnalytics();
+  const [activeUsers, setActiveUsers] = useState<number | null>(null);
+  const [usersLoading, setUsersLoading] = useState(true);
+
+  useEffect(() => {
+    // Fetch total users (active users)
+    const fetchUsers = async () => {
+      const { count, error } = await supabase
+        .from('users')
+        .select('id', { count: 'exact', head: true });
+      if (!error && typeof count === 'number') {
+        setActiveUsers(count);
+      } else {
+        setActiveUsers(null);
+      }
+      setUsersLoading(false);
+    };
+    fetchUsers();
+  }, []);
+
+  const wishlistCount = analytics.reduce((acc, item) => acc + item.wishlistCount, 0);
+
   const stats = [
     {
       title: "Total Orders",
@@ -12,7 +37,7 @@ const DashboardHomepage = () => {
     },
     {
       title: "Wishlist Items",
-      value: "8",
+      value: wishlistLoading ? '...' : wishlistCount,
       icon: Heart,
       description: "Active items",
       trend: "+1.2%"
@@ -26,7 +51,7 @@ const DashboardHomepage = () => {
     },
     {
       title: "Active Users",
-      value: "573",
+      value: usersLoading ? '...' : (activeUsers ?? 'N/A'),
       icon: TrendingUp,
       description: "From last month",
       trend: "+3.1%"
@@ -75,7 +100,7 @@ const DashboardHomepage = () => {
             <CardTitle>Wishlist Items</CardTitle>
           </CardHeader>
           <CardContent>
-            <p className="text-[#666666]">No wishlist items</p>
+            <p className="text-[#666666]">{wishlistLoading ? 'Loading...' : wishlistCount + ' wishlist items'}</p>
           </CardContent>
         </Card>
       </div>

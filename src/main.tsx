@@ -1,6 +1,7 @@
 import { BrowserRouter, Routes, Route } from 'react-router-dom'
 import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
+import { Toaster } from 'sonner'
 import './index.css'
 import Homepage from './pages/Homepage';
 import SignUpPage from './pages/SignUpPage';
@@ -13,6 +14,7 @@ import { CartProvider } from './contexts/CartContext';
 import { WishlistProvider } from './contexts/WishlistContext';
 import ProtectedRoute from './components/auth/ProtectedRoute';
 import DashboardLayout from './layouts/DashboardLayout';
+import UserLayout from './layouts/UserLayout';
 import DashboardHomepage from './pages/dashboard/DashboardHomepage';
 import ProductDetailPage from './pages/ProductDetailPage';
 import AllProductsPage from './pages/AllProductsPage';
@@ -21,6 +23,8 @@ import WishlistPage from './pages/WishlistPage';
 import ProductsPage from './pages/dashboard/ProductsPage';
 import CategoriesPage from './pages/dashboard/CategoriesPage';
 import SettingsPage from './pages/dashboard/SettingsPage';
+import WishlistAnalyticsPage from './pages/dashboard/WishlistAnalyticsPage';
+import UserDashboard from './pages/dashboard/UserDashboard';
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
@@ -28,6 +32,7 @@ createRoot(document.getElementById('root')!).render(
       <CartProvider>
         <WishlistProvider>
           <BrowserRouter>
+            <Toaster position="top-right" />
             <Routes>
               <Route path="/" element={<Homepage />} />
               <Route path="/signup" element={<SignUpPage />} />
@@ -37,7 +42,7 @@ createRoot(document.getElementById('root')!).render(
               <Route path="/products/:id" element={<ProductDetailPage />} />
               <Route path="/products" element={<AllProductsPage />} />
               
-              {/* Dashboard Routes */}
+              {/* Admin Dashboard Routes */}
               <Route path="/dashboard" element={
                 <ProtectedRoute requireAdmin>
                   <DashboardLayout />
@@ -47,11 +52,18 @@ createRoot(document.getElementById('root')!).render(
                 <Route path="products" element={<ProductsPage />} />
                 <Route path="categories" element={<CategoriesPage />} />
                 <Route path="orders" element={<div>Orders Page</div>} />
-                <Route path="wishlist" element={<div>Wishlist Page</div>} />
+                <Route path="wishlist" element={<WishlistAnalyticsPage />} />
                 <Route path="settings" element={<SettingsPage />} />
               </Route>
 
-              {/* Protected Routes */}
+              {/* Protected User Routes */}
+              <Route path="/profile" element={
+                <ProtectedRoute>
+                  <UserLayout />
+                </ProtectedRoute>
+              }>
+                <Route index element={<UserDashboard />} />
+              </Route>
               <Route path="/cart" element={
                 <ProtectedRoute>
                   <CartPage />
@@ -60,6 +72,11 @@ createRoot(document.getElementById('root')!).render(
               <Route path="/wishlist" element={
                 <ProtectedRoute>
                   <WishlistPage />
+                </ProtectedRoute>
+              } />
+              <Route path="/settings" element={
+                <ProtectedRoute>
+                  <SettingsPage />
                 </ProtectedRoute>
               } />
 
