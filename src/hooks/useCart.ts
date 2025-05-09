@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
 
@@ -18,9 +18,6 @@ export interface CartItem {
 
 const CART_STORAGE_KEY = 'cart_items';
 
-// Create a custom event for cart updates
-const CART_UPDATED_EVENT = 'cartUpdated';
-
 export const useCart = () => {
   const { user } = useAuth();
   const [cartItems, setCartItems] = useState<CartItem[]>(() => {
@@ -31,30 +28,26 @@ export const useCart = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  // Listen for cart updates from other components
+  // Update local storage whenever cart items change
   useEffect(() => {
-    const handleCartUpdate = (event: CustomEvent) => {
-      const newCartItems = event.detail;
-      setCartItems(newCartItems);
-    };
+    localStorage.setItem(CART_STORAGE_KEY, JSON.stringify(cartItems));
+    // Dispatch event for real-time updates
+    window.dispatchEvent(new CustomEvent('cartUpdated', { detail: cartItems }));
+  }, [cartItems]);
 
-    window.addEventListener(CART_UPDATED_EVENT, handleCartUpdate as EventListener);
-    return () => {
-      window.removeEventListener(CART_UPDATED_EVENT, handleCartUpdate as EventListener);
-    };
-  }, []);
-
-  // Save to local storage and notify other components
-  const updateCartState = (newItems: CartItem[]) => {
-    setCartItems(newItems);
-    localStorage.setItem(CART_STORAGE_KEY, JSON.stringify(newItems));
-    // Dispatch event for other components
-    window.dispatchEvent(new CustomEvent(CART_UPDATED_EVENT, { detail: newItems }));
-  };
-
-  const fetchCartItems = async () => {
+  const fetchCartItems = useCallback(async () => {
     if (!user) {
-      updateCartState([]);
+      // For non-logged in users, get cart from localStorage
+      const savedCart = localStorage.getItem(CART_STORAGE_KEY);
+      if (savedCart) {
+        try {
+          const parsedCart = JSON.parse(savedCart);
+          setCartItems(parsedCart);
+        } catch (err) {
+          console.error('Error parsing cart from localStorage:', err);
+          setCartItems([]);
+        }
+      }
       setLoading(false);
       return;
     }
@@ -79,20 +72,28 @@ export const useCart = () => {
         .order('created_at', { ascending: false });
 
       if (error) throw error;
-      updateCartState(data || []);
+
+      const formattedData: CartItem[] = (data as unknown as CartItem[]).map(item => ({
+        id: item.id,
+        product_id: item.product_id,
+        quantity: item.quantity,
+        product: item.product
+      }));
+
+      setCartItems(formattedData);
     } catch (err) {
-      console.error('Error fetching cart items:', err);
-      setError('Failed to fetch cart items');
+      console.error('Error fetching cart:', err);
+      setError('Failed to fetch cart');
     } finally {
       setLoading(false);
     }
-  };
+  }, [user]);
 
   useEffect(() => {
     fetchCartItems();
 
     if (user) {
-      const cartSubscription = supabase
+      const subscription = supabase
         .channel('cart_changes')
         .on(
           'postgres_changes',
@@ -102,160 +103,178 @@ export const useCart = () => {
             table: 'cart_items',
             filter: `user_id=eq.${user.id}`,
           },
-          (payload) => {
-            console.log('Cart change received:', payload);
+          () => {
             fetchCartItems();
           }
         )
         .subscribe();
 
       return () => {
-        cartSubscription.unsubscribe();
+        subscription.unsubscribe();
       };
     }
-  }, [user]);
+  }, [user, fetchCartItems]);
 
   const addToCart = async (productId: string, quantity: number = 1) => {
-    if (!user) return;
-
     try {
-      // Get product details for optimistic update
-      const { data: product } = await supabase
+      // Check if product exists in cart
+      const existingItem = cartItems.find(item => item.product_id === productId);
+      let updatedItems: CartItem[];
+
+      // Fetch product details first to ensure it exists and is in stock
+      const { data: productData, error: productError } = await supabase
         .from('products')
         .select('*')
         .eq('id', productId)
         .single();
 
-      if (!product) throw new Error('Product not found');
+      if (productError) throw productError;
+      if (!productData.in_stock) throw new Error('Product is out of stock');
 
-      // Check if item already exists in cart
-      const existingItem = cartItems.find(item => item.product_id === productId);
+      // Calculate new quantity
+      const newQuantity = existingItem ? existingItem.quantity + quantity : quantity;
+
+      // Check if new quantity exceeds stock
+      if (newQuantity > productData.stock_quantity) {
+        throw new Error('Not enough stock available');
+      }
 
       if (existingItem) {
-        // Optimistically update UI
-        const updatedItems = cartItems.map(item =>
+        // Update existing item quantity
+        updatedItems = cartItems.map(item =>
           item.product_id === productId
-            ? { ...item, quantity: item.quantity + quantity }
+            ? { ...item, quantity: newQuantity }
             : item
         );
-        updateCartState(updatedItems);
-
-        // Update quantity in database
-        const { error } = await supabase
-          .from('cart_items')
-          .update({ 
-            quantity: existingItem.quantity + quantity,
-            updated_at: new Date().toISOString()
-          })
-          .eq('id', existingItem.id);
-
-        if (error) throw error;
       } else {
-        // Optimistically update UI with temporary ID
-        const tempId = `temp-${Date.now()}`;
-        const newItem = {
-          id: tempId,
+        // Add new item
+        const newItem: CartItem = {
+          id: Date.now().toString(),
           product_id: productId,
           quantity,
-          product
+          product: productData
         };
-        updateCartState([newItem, ...cartItems]);
+        updatedItems = [...cartItems, newItem];
+      }
 
-        // Insert new item in database
-        const { data: newCartItem, error } = await supabase
+      // Update local state immediately for better UX
+      setCartItems(updatedItems);
+
+      // Sync with database for logged-in users
+      if (user) {
+        const { error } = await supabase
           .from('cart_items')
-          .insert({
-            user_id: user.id,
-            product_id: productId,
-            quantity
-          })
-          .select()
-          .single();
+          .upsert(
+            {
+              user_id: user.id,
+              product_id: productId,
+              quantity: newQuantity
+            },
+            {
+              onConflict: 'user_id,product_id'
+            }
+          );
 
         if (error) throw error;
-
-        // Update the temporary ID with the real one
-        const updatedItems = cartItems.map(item =>
-          item.id === tempId ? { ...item, id: newCartItem.id } : item
-        );
-        updateCartState(updatedItems);
       }
+
+      // Dispatch cart update event
+      window.dispatchEvent(new CustomEvent('cartUpdated', { detail: updatedItems }));
     } catch (err) {
       console.error('Error adding to cart:', err);
-      setError('Failed to add item to cart');
-      // Revert optimistic update on error
+      setError(err instanceof Error ? err.message : 'Failed to add item to cart');
+      // Revert local state on error
       fetchCartItems();
     }
   };
 
-  const updateQuantity = async (cartItemId: string, quantity: number) => {
-    if (!user) return;
-
+  const updateQuantity = async (productId: string, quantity: number) => {
     try {
-      // Optimistically update UI
+      // Update local state immediately
       const updatedItems = cartItems.map(item =>
-        item.id === cartItemId ? { ...item, quantity } : item
+        item.product_id === productId
+          ? { ...item, quantity }
+          : item
       );
-      updateCartState(updatedItems);
+      setCartItems(updatedItems);
 
-      const { error } = await supabase
-        .from('cart_items')
-        .update({ 
-          quantity,
-          updated_at: new Date().toISOString()
-        })
-        .eq('id', cartItemId)
-        .eq('user_id', user.id);
+      // Then sync with database if user is logged in
+      if (user) {
+        const { error } = await supabase
+          .from('cart_items')
+          .update({ quantity })
+          .eq('product_id', productId)
+          .eq('user_id', user.id);
 
-      if (error) throw error;
+        if (error) throw error;
+      }
     } catch (err) {
-      console.error('Error updating cart item:', err);
-      setError('Failed to update cart item');
-      // Revert optimistic update on error
+      console.error('Error updating cart quantity:', err);
+      setError('Failed to update cart quantity');
+      // Revert local state on error
       fetchCartItems();
     }
   };
 
-  const removeFromCart = async (cartItemId: string) => {
-    if (!user) return;
-
+  const removeFromCart = async (itemId: string) => {
     try {
-      // Optimistically update UI
-      const updatedItems = cartItems.filter(item => item.id !== cartItemId);
-      updateCartState(updatedItems);
+      const itemToRemove = cartItems.find(item => item.id === itemId);
+      if (!itemToRemove) return;
 
-      const { error } = await supabase
-        .from('cart_items')
-        .delete()
-        .eq('id', cartItemId)
-        .eq('user_id', user.id);
+      // First, update local state immediately
+      const updatedItems = cartItems.filter(item => item.id !== itemId);
+      setCartItems(updatedItems);
 
-      if (error) throw error;
+      // Then sync with database if user is logged in
+      if (user) {
+        const { error } = await supabase
+          .from('cart_items')
+          .delete()
+          .eq('id', itemId)
+          .eq('user_id', user.id);
+
+        if (error) {
+          // If database operation fails, revert local state
+          setCartItems(cartItems);
+          throw error;
+        }
+      }
+
+      // Force a re-render by dispatching a custom event
+      window.dispatchEvent(new CustomEvent('cartUpdated', { 
+        detail: updatedItems 
+      }));
     } catch (err) {
       console.error('Error removing from cart:', err);
       setError('Failed to remove item from cart');
-      // Revert optimistic update on error
+      // Revert local state on error
       fetchCartItems();
     }
   };
 
   const clearCart = async () => {
-    if (!user) return;
-
     try {
-      // Optimistically update UI
-      updateCartState([]);
+      // Update local state immediately
+      setCartItems([]);
 
-      const { error } = await supabase
-        .from('cart_items')
-        .delete()
-        .eq('user_id', user.id);
+      // Then sync with database if user is logged in
+      if (user) {
+        const { error } = await supabase
+          .from('cart_items')
+          .delete()
+          .eq('user_id', user.id);
 
-      if (error) throw error;
+        if (error) throw error;
+      }
+
+      // Force a re-render by dispatching a custom event
+      window.dispatchEvent(new CustomEvent('cartUpdated', { 
+        detail: [] 
+      }));
     } catch (err) {
       console.error('Error clearing cart:', err);
       setError('Failed to clear cart');
-      // Revert optimistic update on error
+      // Revert local state on error
       fetchCartItems();
     }
   };
@@ -270,4 +289,4 @@ export const useCart = () => {
     clearCart,
     refreshCart: fetchCartItems
   };
-}; 
+};

@@ -2,12 +2,12 @@ import { Link } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import UserDropdown from './UserDropdown';
 import { ShoppingCart } from 'lucide-react';
-import { useCart } from '../hooks/useCart';
+import { useCartQuery } from '../hooks/useCartQuery';
 
 const Header = () => {
   const { user } = useAuth();
-  const { cartItems } = useCart();
-  const totalItems = cartItems.reduce((acc, item) => acc + item.quantity, 0);
+  const { cartItems } = useCartQuery();
+  const totalItems = (cartItems ?? []).reduce((acc, item) => acc + item.quantity, 0);
 
   return (
     <header className="bg-white border-b">
@@ -62,4 +62,4 @@ const Header = () => {
   );
 };
 
-export default Header; 
+export default Header;

@@ -3,7 +3,7 @@ import { Heart, Share2, Truck, Shield, RefreshCw } from 'lucide-react';
 import { Button } from '../ui/button';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
-import { useCart } from '../../hooks/useCart';
+import { useCartQuery } from '../../hooks/useCartQuery';
 import { useWishlist } from '../../hooks/useWishlist';
 import {
   Dialog,
@@ -33,10 +33,13 @@ const ProductDetails = ({ product }: ProductDetailsProps) => {
   const [quantity, setQuantity] = useState(1);
   const { user } = useAuth();
   const navigate = useNavigate();
-  const { addToCart, refreshCart } = useCart();
+  const { cartItems, addToCart } = useCartQuery();
   const { addToWishlist, removeFromWishlist, isInWishlist, refreshWishlist } = useWishlist();
   const [showLoginDialog, setShowLoginDialog] = useState(false);
   const [isWishlisted, setIsWishlisted] = useState(false);
+
+  // Check if product is in cart
+  const isInCart = cartItems?.some(item => item.product_id === product.id);
 
   // Check if product is in wishlist when component mounts
   useEffect(() => {
@@ -56,8 +59,7 @@ const ProductDetails = ({ product }: ProductDetailsProps) => {
     }
 
     try {
-      await addToCart(product.id, quantity);
-      await refreshCart();
+      await addToCart.mutateAsync({ productId: product.id, quantity });
     } catch (error) {
       console.error('Error adding to cart:', error);
     }
@@ -114,7 +116,7 @@ const ProductDetails = ({ product }: ProductDetailsProps) => {
                 <button
                   onClick={() => handleQuantityChange(quantity - 1)}
                   className="px-3 py-2 text-gray-600 hover:bg-gray-100"
-                  disabled={quantity <= 1}
+                  disabled={quantity <= 1 || !product.in_stock}
                 >
                   -
                 </button>
@@ -122,7 +124,7 @@ const ProductDetails = ({ product }: ProductDetailsProps) => {
                 <button
                   onClick={() => handleQuantityChange(quantity + 1)}
                   className="px-3 py-2 text-gray-600 hover:bg-gray-100"
-                  disabled={quantity >= product.stock_quantity}
+                  disabled={quantity >= product.stock_quantity || !product.in_stock}
                 >
                   +
                 </button>
@@ -130,10 +132,10 @@ const ProductDetails = ({ product }: ProductDetailsProps) => {
               <Button
                 className="flex-1 bg-[#1A1A1A] text-white hover:bg-[#1A1A1A]/90 h-12"
                 size="lg"
-                disabled={!product.in_stock}
+                disabled={!product.in_stock || addToCart.isPending}
                 onClick={handleAddToCart}
               >
-                {product.in_stock ? 'Add to Cart' : 'Out of Stock'}
+                {addToCart.isPending ? 'Adding...' : isInCart ? 'In Cart' : product.in_stock ? 'Add to Cart' : 'Out of Stock'}
               </Button>
               <Button
                 variant="outline"

@@ -1,26 +1,25 @@
-import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
-import HomePage from './pages/HomePage';
-import ProductsPage from './pages/ProductsPage';
-import ProductDetailPage from './pages/ProductDetailPage';
-import DashboardLayout from './layouts/DashboardLayout';
-import ProductsPage as DashboardProductsPage from './pages/dashboard/ProductsPage';
-import CategoriesPage from './pages/dashboard/CategoriesPage';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { ReactQueryDevtools } from '@tanstack/react-query-devtools';
+import { BrowserRouter } from 'react-router-dom';
+import { AuthProvider } from './contexts/AuthContext';
+import { WishlistProvider } from './contexts/WishlistContext';
+import AppRoutes from './AppRoutes';
 
-export default function App() {
+const queryClient = new QueryClient();
+
+function App() {
   return (
-    <Router>
-      <Routes>
-        {/* Public Routes */}
-        <Route path="/" element={<HomePage />} />
-        <Route path="/products" element={<ProductsPage />} />
-        <Route path="/products/:id" element={<ProductDetailPage />} />
-
-        {/* Dashboard Routes */}
-        <Route path="/dashboard" element={<DashboardLayout />}>
-          <Route path="products" element={<DashboardProductsPage />} />
-          <Route path="categories" element={<CategoriesPage />} />
-        </Route>
-      </Routes>
-    </Router>
+    <QueryClientProvider client={queryClient}>
+      <AuthProvider>
+        <WishlistProvider>
+          <BrowserRouter>
+            <AppRoutes />
+          </BrowserRouter>
+        </WishlistProvider>
+      </AuthProvider>
+      <ReactQueryDevtools initialIsOpen={false} />
+    </QueryClientProvider>
   );
-} 
+}
+
+export default App;

@@ -15,13 +15,26 @@ export interface WishlistItem {
   };
 }
 
+interface WishlistData {
+  id: string;
+  product_id: string;
+  product: {
+    id: string;
+    name: string;
+    price: number;
+    image_url: string;
+    in_stock: boolean;
+    stock_quantity: number;
+  };
+}
+
 export const useWishlist = () => {
   const { user } = useAuth();
   const [wishlistItems, setWishlistItems] = useState<WishlistItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  const fetchWishlistItems = async () => {
+  const fetchWishlist = async () => {
     if (!user) {
       setWishlistItems([]);
       setLoading(false);
@@ -34,7 +47,7 @@ export const useWishlist = () => {
         .select(`
           id,
           product_id,
-          product:products (
+          product:products!inner (
             id,
             name,
             price,
@@ -47,18 +60,48 @@ export const useWishlist = () => {
         .order('created_at', { ascending: false });
 
       if (error) throw error;
-      setWishlistItems(data || []);
+
+      // First cast to unknown then to our interface to safely handle the type conversion
+      const formattedData = ((data as unknown) as WishlistData[]).map(item => ({
+        id: item.id,
+        product_id: item.product_id,
+        product: item.product
+      }));
+
+      setWishlistItems(formattedData);
     } catch (err) {
-      console.error('Error fetching wishlist items:', err);
-      setError('Failed to fetch wishlist items');
+      console.error('Error fetching wishlist:', err);
+      setError('Failed to fetch wishlist');
     } finally {
       setLoading(false);
     }
   };
 
   useEffect(() => {
-    fetchWishlistItems();
-  }, [user]);
+    fetchWishlist();
+
+    if (user) {
+      const subscription = supabase
+        .channel('wishlist_changes')
+        .on(
+          'postgres_changes',
+          {
+            event: '*',
+            schema: 'public',
+            table: 'wishlist_items',
+            filter: `user_id=eq.${user.id}`,
+          },
+          () => {
+            fetchWishlist();
+          }
+        )
+        .subscribe();
+
+      return () => {
+        subscription.unsubscribe();
+      };
+    }
+  }, [user, fetchWishlist]);
 
   const addToWishlist = async (productId: string) => {
     if (!user) return;
@@ -72,7 +115,7 @@ export const useWishlist = () => {
         });
 
       if (error) throw error;
-      await fetchWishlistItems();
+      await fetchWishlist();
     } catch (err) {
       console.error('Error adding to wishlist:', err);
       setError('Failed to add item to wishlist');
@@ -90,7 +133,7 @@ export const useWishlist = () => {
         .eq('user_id', user.id);
 
       if (error) throw error;
-      await fetchWishlistItems();
+      await fetchWishlist();
     } catch (err) {
       console.error('Error removing from wishlist:', err);
       setError('Failed to remove item from wishlist');
@@ -108,6 +151,6 @@ export const useWishlist = () => {
     addToWishlist,
     removeFromWishlist,
     isInWishlist,
-    refreshWishlist: fetchWishlistItems
+    refreshWishlist: fetchWishlist
   };
-}; 
+};

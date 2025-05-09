@@ -1,17 +1,33 @@
-import { useCart } from '../hooks/useCart';
 import { Button } from '../components/ui/button';
 import { Trash2, ArrowLeft } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import Header from '../components/shared/Header';
 import Footer from '../components/shared/Footer';
+import { useCartQuery } from '../hooks/useCartQuery';
 
 const CartPage = () => {
-  const { cartItems, removeFromCart, updateQuantity, loading } = useCart();
+  const { cartItems, removeFromCart, updateQuantity, isLoading } = useCartQuery();
 
-  const totalItems = cartItems.reduce((sum, item) => sum + item.quantity, 0);
-  const totalPrice = cartItems.reduce((sum, item) => sum + (item.product.price * item.quantity), 0);
+  const totalItems = cartItems?.reduce((sum, item) => sum + item.quantity, 0) || 0;
+  const totalPrice = cartItems?.reduce((sum, item) => sum + (item.product.price * item.quantity), 0) || 0;
 
-  if (loading) {
+  const handleUpdateQuantity = async (productId: string, quantity: number) => {
+    try {
+      await updateQuantity.mutateAsync({ productId, quantity });
+    } catch (error) {
+      console.error('Error updating quantity:', error);
+    }
+  };
+
+  const handleRemoveFromCart = async (cartItemId: string) => {
+    try {
+      await removeFromCart.mutateAsync(cartItemId);
+    } catch (error) {
+      console.error('Error removing item from cart:', error);
+    }
+  };
+
+  if (isLoading) {
     return (
       <div className="min-h-screen">
         <Header />
@@ -25,7 +41,7 @@ const CartPage = () => {
     );
   }
 
-  if (cartItems.length === 0) {
+  if (!cartItems || cartItems.length === 0) {
     return (
       <div className="min-h-screen">
         <Header />
@@ -73,12 +89,13 @@ const CartPage = () => {
                   <div className="flex-1">
                     <div className="flex justify-between">
                       <div>
-                        <h3 className="font-medium text-lg">{item.product.name}</h3>
-                        <p className="text-gray-600 text-sm mt-1">{item.product.description}</p>
+                        <h3 className="font-medium">{item.product.name}</h3>
+                        <p className="text-sm text-gray-500 mt-1">GH₵ {item.product.price.toFixed(2)}</p>
                       </div>
                       <button
-                        onClick={() => removeFromCart(item.id)}
-                        className="text-gray-500 hover:text-red-500 p-2"
+                        onClick={() => handleRemoveFromCart(item.id)}
+                        className="text-gray-500 hover:text-red-500 p-2 transition-colors duration-200"
+                        title="Remove item"
                       >
                         <Trash2 className="w-5 h-5" />
                       </button>
@@ -87,16 +104,16 @@ const CartPage = () => {
                       <div className="flex items-center gap-4">
                         <div className="flex items-center border rounded-md">
                           <button
-                            onClick={() => updateQuantity(item.id, item.quantity - 1)}
-                            className="px-3 py-1 hover:bg-gray-100"
+                            onClick={() => handleUpdateQuantity(item.product_id, item.quantity - 1)}
+                            className="px-3 py-1 hover:bg-gray-100 transition-colors duration-200"
                             disabled={item.quantity <= 1}
                           >
                             -
                           </button>
                           <span className="px-4 py-1">{item.quantity}</span>
                           <button
-                            onClick={() => updateQuantity(item.id, item.quantity + 1)}
-                            className="px-3 py-1 hover:bg-gray-100"
+                            onClick={() => handleUpdateQuantity(item.product_id, item.quantity + 1)}
+                            className="px-3 py-1 hover:bg-gray-100 transition-colors duration-200"
                             disabled={item.quantity >= item.product.stock_quantity}
                           >
                             +
@@ -159,4 +176,4 @@ const CartPage = () => {
   );
 };
 
-export default CartPage; 
+export default CartPage;

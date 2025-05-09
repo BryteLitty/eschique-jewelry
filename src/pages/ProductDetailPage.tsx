@@ -1,8 +1,6 @@
 import { useEffect, useState } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
-import { Button } from '../components/ui/button';
-import { ArrowLeft } from 'lucide-react';
 import ProductDetails from '../components/products/ProductDetails';
 import Header from '../components/shared/Header';
 import Footer from '../components/shared/Footer';
@@ -20,7 +18,6 @@ interface Product {
 
 const ProductDetailPage = () => {
   const { id } = useParams<{ id: string }>();
-  const navigate = useNavigate();
   const [product, setProduct] = useState<Product | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);

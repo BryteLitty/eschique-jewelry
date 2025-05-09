@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { Heart } from 'lucide-react';
 import { Button } from '../ui/button';
 import { useAuth } from '../../contexts/AuthContext';
-import { useCart } from '../../hooks/useCart';
+import { useCartQuery } from '../../hooks/useCartQuery';
 import { useWishlist } from '../../hooks/useWishlist';
 import type { Product as SupabaseProduct } from '../../hooks/useProducts';
 import {
@@ -22,11 +22,10 @@ interface ProductCardProps {
 const Product = ({ product }: ProductCardProps) => {
   const navigate = useNavigate();
   const { user } = useAuth();
-  const { addToCart, cartItems } = useCart();
+  const { cartItems, addToCart } = useCartQuery();
   const { addToWishlist, removeFromWishlist, isInWishlist } = useWishlist();
   const [showLoginDialog, setShowLoginDialog] = useState(false);
   const [isWishlisted, setIsWishlisted] = useState(false);
-  const [isAddingToCart, setIsAddingToCart] = useState(false);
 
   // Check if product is in wishlist when component mounts
   useEffect(() => {
@@ -63,20 +62,15 @@ const Product = ({ product }: ProductCardProps) => {
       return;
     }
 
-    if (isAddingToCart) return;
-
     try {
-      setIsAddingToCart(true);
-      await addToCart(product.id);
+      await addToCart.mutateAsync({ productId: product.id, quantity: 1 });
     } catch (error) {
       console.error('Error adding to cart:', error);
-    } finally {
-      setIsAddingToCart(false);
     }
   };
 
   // Check if product is in cart
-  const isInCart = cartItems.some(item => item.product_id === product.id);
+  const isInCart = cartItems?.some(item => item.product_id === product.id);
 
   return (
     <>
@@ -98,11 +92,12 @@ const Product = ({ product }: ProductCardProps) => {
             )}
             <button
               onClick={handleWishlistToggle}
+              title={isWishlisted ? 'Remove from Wishlist' : 'Add to Wishlist'}
               className={`absolute top-2 right-2 p-2 rounded-full shadow-md transition-colors cursor-pointer ${
                 isWishlisted ? 'bg-red-50 text-red-500' : 'bg-white text-gray-500 hover:bg-red-50'
               }`}
             >
-              <Heart className="w-5 h-5" />
+              <Heart className="w-5 h-5" fill={isWishlisted ? 'currentColor' : 'none'} />
             </button>
           </div>
         </div>
@@ -121,11 +116,11 @@ const Product = ({ product }: ProductCardProps) => {
         <div className="p-1.5 sm:p-2.5 pt-0">
           <Button 
             className="w-full bg-[#1A1A1A] text-white hover:bg-[#1A1A1A]/90 h-8 sm:h-12 text-xs sm:text-sm cursor-pointer"
-            disabled={!product.in_stock || isAddingToCart}
+            disabled={!product.in_stock || addToCart.isPending}
             size="lg"
             onClick={handleAddToCart}
           >
-            {isAddingToCart ? 'Adding...' : isInCart ? 'In Cart' : product.in_stock ? 'Add to Cart' : 'Out of Stock'}
+            {addToCart.isPending ? 'Adding...' : isInCart ? 'In Cart' : product.in_stock ? 'Add to Cart' : 'Out of Stock'}
           </Button>
         </div>
       </div>

@@ -4,18 +4,16 @@ import { ShoppingBag, Heart, User, LogOut, LayoutDashboard } from 'lucide-react'
 import Logo from '@/assets/logo.png';
 import { useAuth } from '../../contexts/AuthContext';
 import { supabase } from '../../lib/supabase';
-import { useCart } from '../../hooks/useCart';
+import { useCartCount } from '../../hooks/useCartCount';
 import CartDropdown from '../cart/CartDropdown';
 
 const Header = () => {
   const { user, isAdmin, signOut } = useAuth();
-  const { cartItems } = useCart();
+  const cartCount = useCartCount();
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const [fullName, setFullName] = useState<string>('');
   const dropdownRef = useRef<HTMLDivElement>(null);
   const [isCartOpen, setIsCartOpen] = useState(false);
-
-  const totalItems = cartItems.reduce((sum, item) => sum + item.quantity, 0);
 
   useEffect(() => {
     const fetchUserProfile = async () => {
@@ -74,9 +72,9 @@ const Header = () => {
                 className="relative p-2 hover:bg-gray-100 rounded-full"
               >
                 <ShoppingBag className="w-6 h-6" />
-                {totalItems > 0 && (
+                {cartCount > 0 && (
                   <span className="absolute -top-1 -right-1 bg-[#8B5E3C] text-white text-xs w-5 h-5 flex items-center justify-center rounded-full">
-                    {totalItems}
+                    {cartCount}
                   </span>
                 )}
               </button>
@@ -91,20 +89,20 @@ const Header = () => {
               <div className="relative" ref={dropdownRef}>
                 <button
                   onClick={() => setIsDropdownOpen(!isDropdownOpen)}
-                  className="flex items-center gap-2 p-2 hover:bg-gray-100 rounded-full"
+                  className="flex items-center space-x-2 p-2 hover:bg-gray-100 rounded-full"
+                  title="User Menu"
                 >
                   <User className="w-6 h-6" />
                 </button>
 
                 {isDropdownOpen && (
-                  <div className="absolute right-0 mt-2 w-48 bg-white rounded-lg shadow-lg border py-1">
-                    <div className="px-4 py-2 border-b">
-                      <p className="font-medium">{fullName}</p>
-                      <p className="text-sm text-gray-500">{user.email}</p>
+                  <div className="absolute right-0 mt-2 w-48 bg-white rounded-md shadow-lg py-1 z-50">
+                    <div className="px-4 py-2 text-sm text-gray-700 border-b">
+                      {fullName || user.email}
                     </div>
-                    {isAdmin && (
+                    {isAdmin ? (
                       <Link
-                        to="/dashboard"
+                        to="/admin"
                         className="block px-4 py-2 text-sm text-[#1A1A1A] hover:bg-[#F9F9F9]"
                         onClick={() => setIsDropdownOpen(false)}
                       >
@@ -113,17 +111,30 @@ const Header = () => {
                           Dashboard
                         </div>
                       </Link>
+                    ) : (
+                      <>
+                        <Link
+                          to="/dashboard"
+                          className="block px-4 py-2 text-sm text-[#1A1A1A] hover:bg-[#F9F9F9]"
+                          onClick={() => setIsDropdownOpen(false)}
+                        >
+                          <div className="flex items-center gap-2">
+                            <User size={16} />
+                            My Account
+                          </div>
+                        </Link>
+                        <Link
+                          to="/orders"
+                          className="block px-4 py-2 text-sm text-[#1A1A1A] hover:bg-[#F9F9F9]"
+                          onClick={() => setIsDropdownOpen(false)}
+                        >
+                          <div className="flex items-center gap-2">
+                            <ShoppingBag size={16} />
+                            My Orders
+                          </div>
+                        </Link>
+                      </>
                     )}
-                    <Link
-                      to="/profile"
-                      className="block px-4 py-2 text-sm text-[#1A1A1A] hover:bg-[#F9F9F9]"
-                      onClick={() => setIsDropdownOpen(false)}
-                    >
-                      <div className="flex items-center gap-2">
-                        <User size={16} />
-                        Profile
-                      </div>
-                    </Link>
                     <button
                       onClick={() => {
                         signOut();

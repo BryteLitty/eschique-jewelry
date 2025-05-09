@@ -9,7 +9,8 @@ interface WishlistItem {
     name: string;
     price: number;
     image_url: string;
-    description: string;
+    in_stock: boolean;
+    stock_quantity: number;
   };
   created_at: string;
 }
@@ -28,18 +29,18 @@ export const useUserWishlist = () => {
     }
 
     try {
-      setLoading(true);
       const { data, error } = await supabase
-        .from('wishlist_items')
+        .from('wishlist')
         .select(`
           id,
           created_at,
-          product:products (
+          product:products!inner (
             id,
             name,
             price,
             image_url,
-            description
+            in_stock,
+            stock_quantity
           )
         `)
         .eq('user_id', user.id)
@@ -47,9 +48,16 @@ export const useUserWishlist = () => {
 
       if (error) throw error;
 
-      setWishlistItems(data || []);
+      const formattedData = (data || []).map(item => ({
+        id: item.id,
+        created_at: item.created_at,
+        product: item.product[0]
+      }));
+
+      setWishlistItems(formattedData);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to fetch wishlist');
+      console.error('Error fetching wishlist:', err);
+      setError('Failed to fetch wishlist');
     } finally {
       setLoading(false);
     }

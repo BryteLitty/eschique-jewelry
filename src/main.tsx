@@ -3,14 +3,13 @@ import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
 import { Toaster } from 'sonner'
 import './index.css'
-import Homepage from './pages/Homepage';
+import HomePage from './pages/Homepage'
 import SignUpPage from './pages/SignUpPage';
 import LoginPage from './pages/LoginPage';
 import ForgotPasswordPage from './pages/ForgotPasswordPage';
 import ResetPasswordPage from './pages/ResetPasswordPage';
 import NotFound from './pages/NotFound';
 import { AuthProvider } from './contexts/AuthContext';
-import { CartProvider } from './contexts/CartContext';
 import { WishlistProvider } from './contexts/WishlistContext';
 import ProtectedRoute from './components/auth/ProtectedRoute';
 import DashboardLayout from './layouts/DashboardLayout';
@@ -25,16 +24,30 @@ import CategoriesPage from './pages/dashboard/CategoriesPage';
 import SettingsPage from './pages/dashboard/SettingsPage';
 import WishlistAnalyticsPage from './pages/dashboard/WishlistAnalyticsPage';
 import UserDashboard from './pages/dashboard/UserDashboard';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { ReactQueryDevtools } from '@tanstack/react-query-devtools';
+
+// Create a client
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      staleTime: 1000 * 60, // 1 minute
+      gcTime: 1000 * 60 * 5, // 5 minutes (garbage collection time)
+      refetchOnWindowFocus: false,
+      retry: 1,
+    },
+  },
+});
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
-    <AuthProvider>
-      <CartProvider>
+    <QueryClientProvider client={queryClient}>
+      <AuthProvider>
         <WishlistProvider>
           <BrowserRouter>
             <Toaster position="top-right" />
             <Routes>
-              <Route path="/" element={<Homepage />} />
+              <Route path="/" element={<HomePage />} />
               <Route path="/signup" element={<SignUpPage />} />
               <Route path="/login" element={<LoginPage />} />
               <Route path="/forgot-password" element={<ForgotPasswordPage />} />
@@ -83,10 +96,11 @@ createRoot(document.getElementById('root')!).render(
               {/* 404 Route - Must be last */}
               <Route path="*" element={<NotFound />} />
             </Routes>
+            <ReactQueryDevtools initialIsOpen={false} />
           </BrowserRouter>
         </WishlistProvider>
-      </CartProvider>
-    </AuthProvider>
+      </AuthProvider>
+    </QueryClientProvider>
   </StrictMode>,
 )
 
