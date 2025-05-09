@@ -14,7 +14,7 @@ import { WishlistProvider } from './contexts/WishlistContext';
 import ProtectedRoute from './components/auth/ProtectedRoute';
 import DashboardLayout from './layouts/DashboardLayout';
 import DashboardHomepage from './pages/dashboard/DashboardHomepage';
-import ProductDetailsPage from './pages/ProductDetailsPage';
+import ProductDetailPage from './pages/ProductDetailPage';
 import AllProductsPage from './pages/AllProductsPage';
 import CartPage from './pages/CartPage';
 import WishlistPage from './pages/WishlistPage';
@@ -34,7 +34,7 @@ createRoot(document.getElementById('root')!).render(
               <Route path="/login" element={<LoginPage />} />
               <Route path="/forgot-password" element={<ForgotPasswordPage />} />
               <Route path="/reset-password" element={<ResetPasswordPage />} />
-              <Route path="/product/:id" element={<ProductDetailsPage />} />
+              <Route path="/products/:id" element={<ProductDetailPage />} />
               <Route path="/products" element={<AllProductsPage />} />
               
               {/* Dashboard Routes */}

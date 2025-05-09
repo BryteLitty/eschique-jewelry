@@ -1,19 +1,21 @@
 import { useState, useRef, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { ShoppingBag, Heart, User, LogOut, Bell, LayoutDashboard } from 'lucide-react';
+import { ShoppingBag, Heart, User, LogOut, LayoutDashboard } from 'lucide-react';
 import Logo from '@/assets/logo.png';
 import { useAuth } from '../../contexts/AuthContext';
 import { supabase } from '../../lib/supabase';
-import { useCart } from '../../contexts/CartContext';
+import { useCart } from '../../hooks/useCart';
 import CartDropdown from '../cart/CartDropdown';
 
 const Header = () => {
   const { user, isAdmin, signOut } = useAuth();
-  const { totalItems } = useCart();
+  const { cartItems } = useCart();
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const [fullName, setFullName] = useState<string>('');
   const dropdownRef = useRef<HTMLDivElement>(null);
   const [isCartOpen, setIsCartOpen] = useState(false);
+
+  const totalItems = cartItems.reduce((sum, item) => sum + item.quantity, 0);
 
   useEffect(() => {
     const fetchUserProfile = async () => {
@@ -65,92 +67,63 @@ const Header = () => {
 
         {/* Actions */}
         <div className="flex items-center space-x-4">
-          <button
-            onClick={() => setIsCartOpen(true)}
-            className="relative p-2 hover:bg-gray-100 rounded-full"
-          >
-            <ShoppingBag className="w-6 h-6" />
-            {totalItems > 0 && (
-              <span className="absolute -top-1 -right-1 bg-[#8B5E3C] text-white text-xs w-5 h-5 flex items-center justify-center rounded-full">
-                {totalItems}
-              </span>
-            )}
-          </button>
+          {!isAdmin && (
+            <>
+              <button
+                onClick={() => setIsCartOpen(true)}
+                className="relative p-2 hover:bg-gray-100 rounded-full"
+              >
+                <ShoppingBag className="w-6 h-6" />
+                {totalItems > 0 && (
+                  <span className="absolute -top-1 -right-1 bg-[#8B5E3C] text-white text-xs w-5 h-5 flex items-center justify-center rounded-full">
+                    {totalItems}
+                  </span>
+                )}
+              </button>
+              <Link to="/wishlist" className="p-2 hover:bg-gray-100 rounded-full">
+                <Heart className="w-6 h-6" />
+              </Link>
+            </>
+          )}
 
           {user ? (
             <>
-              {isAdmin ? (
-                <>
-                  <Link 
-                    to="/dashboard"
-                    className="p-2 hover:text-[#8B5E3C] transition-colors"
-                    aria-label="Dashboard"
-                  >
-                    <LayoutDashboard size={20} />
-                  </Link>
-                  <button 
-                    className="p-2 hover:text-[#8B5E3C] transition-colors relative"
-                    aria-label="Notifications"
-                  >
-                    <Bell size={20} />
-                    <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs rounded-full h-4 w-4 flex items-center justify-center">
-                      3
-                    </span>
-                  </button>
-                </>
-              ) : (
-                <>
-                  <Link 
-                    to="/wishlist"
-                    className="p-2 hover:text-[#8B5E3C] transition-colors"
-                    aria-label="Wishlist"
-                  >
-                    <Heart size={20} />
-                  </Link>
-                </>
-              )}
               <div className="relative" ref={dropdownRef}>
-                <button 
-                  className="p-2 hover:text-[#8B5E3C] transition-colors"
-                  aria-label="Account"
+                <button
                   onClick={() => setIsDropdownOpen(!isDropdownOpen)}
+                  className="flex items-center gap-2 p-2 hover:bg-gray-100 rounded-full"
                 >
-                  <User size={20} />
+                  <User className="w-6 h-6" />
                 </button>
-                
+
                 {isDropdownOpen && (
-                  <div className="absolute right-0 mt-2 w-48 bg-white rounded-md shadow-lg py-1 border border-[#E5E5E5]">
-                    <div className="px-4 py-2 text-sm text-[#1A1A1A] border-b border-[#E5E5E5]">
-                      {fullName || user.email}
-                      {isAdmin && (
-                        <span className="ml-2 px-2 py-0.5 text-xs bg-[#8B5E3C] text-white rounded-full">
-                          Admin
-                        </span>
-                      )}
+                  <div className="absolute right-0 mt-2 w-48 bg-white rounded-lg shadow-lg border py-1">
+                    <div className="px-4 py-2 border-b">
+                      <p className="font-medium">{fullName}</p>
+                      <p className="text-sm text-gray-500">{user.email}</p>
                     </div>
-                    {isAdmin ? (
-                      <>
-                        <Link 
-                          to="/dashboard" 
-                          className="block px-4 py-2 text-sm text-[#1A1A1A] hover:bg-[#F9F9F9]"
-                        >
-                          Dashboard
-                        </Link>
-                        <Link 
-                          to="/dashboard/settings" 
-                          className="block px-4 py-2 text-sm text-[#1A1A1A] hover:bg-[#F9F9F9]"
-                        >
-                          Settings
-                        </Link>
-                      </>
-                    ) : (
-                      <Link 
-                        to="/profile" 
+                    {isAdmin && (
+                      <Link
+                        to="/dashboard"
                         className="block px-4 py-2 text-sm text-[#1A1A1A] hover:bg-[#F9F9F9]"
+                        onClick={() => setIsDropdownOpen(false)}
                       >
-                        Profile
+                        <div className="flex items-center gap-2">
+                          <LayoutDashboard size={16} />
+                          Dashboard
+                        </div>
                       </Link>
                     )}
+                    <Link
+                      to="/profile"
+                      className="block px-4 py-2 text-sm text-[#1A1A1A] hover:bg-[#F9F9F9]"
+                      onClick={() => setIsDropdownOpen(false)}
+                    >
+                      <div className="flex items-center gap-2">
+                        <User size={16} />
+                        Profile
+                      </div>
+                    </Link>
                     <button
                       onClick={() => {
                         signOut();

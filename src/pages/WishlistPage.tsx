@@ -1,23 +1,35 @@
-import { useWishlist } from '../contexts/WishlistContext';
-import { useCart } from '../contexts/CartContext';
+import { useWishlist } from '../hooks/useWishlist';
 import { Button } from '../components/ui/button';
-import { Trash2, ShoppingBag } from 'lucide-react';
+import { Heart, ArrowLeft } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import Header from '../components/shared/Header';
 import Footer from '../components/shared/Footer';
 
 const WishlistPage = () => {
-  const { items, removeFromWishlist } = useWishlist();
-  const { addToCart } = useCart();
+  const { wishlistItems, removeFromWishlist, loading } = useWishlist();
 
-  if (items.length === 0) {
+  if (loading) {
+    return (
+      <div className="min-h-screen">
+        <Header />
+        <div className="container max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16">
+          <div className="flex items-center justify-center">
+            <div className="w-8 h-8 border-4 border-primary border-t-transparent rounded-full animate-spin" />
+          </div>
+        </div>
+        <Footer />
+      </div>
+    );
+  }
+
+  if (wishlistItems.length === 0) {
     return (
       <div className="min-h-screen">
         <Header />
         <div className="container max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16">
           <div className="text-center">
             <h1 className="text-2xl font-bold text-[#1A1A1A] mb-4">Your Wishlist is Empty</h1>
-            <p className="text-gray-600 mb-8">Save items you love to your wishlist.</p>
+            <p className="text-gray-600 mb-8">Looks like you haven't added any items to your wishlist yet.</p>
             <Link to="/products">
               <Button className="bg-[#1A1A1A] text-white hover:bg-[#1A1A1A]/90">
                 Browse Products
@@ -34,47 +46,42 @@ const WishlistPage = () => {
     <div className="min-h-screen">
       <Header />
       <div className="container max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <div className="flex flex-col lg:flex-row gap-8">
-          {/* Wishlist Items */}
-          <div className="flex-1">
-            <div className="flex items-center justify-between mb-6">
-              <h1 className="text-2xl font-bold text-[#1A1A1A]">My Wishlist ({items.length})</h1>
-            </div>
+        <div className="flex items-center justify-between mb-6">
+          <h1 className="text-2xl font-bold text-[#1A1A1A]">Wishlist ({wishlistItems.length})</h1>
+          <Link to="/products" className="text-[#8B5E3C] hover:text-[#8B5E3C]/80 flex items-center gap-2">
+            <ArrowLeft className="w-4 h-4" />
+            Continue Shopping
+          </Link>
+        </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {items.map((item) => (
-                <div key={item.id} className="bg-white rounded-lg border overflow-hidden group">
-                  <div className="relative aspect-[3/2] overflow-hidden">
-                    <img
-                      src={item.image}
-                      alt={item.name}
-                      className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
-                    />
-                    <button
-                      onClick={() => removeFromWishlist(item.id)}
-                      className="absolute top-2 right-2 p-2 bg-white rounded-full shadow-md hover:bg-red-50 text-gray-500 hover:text-red-500 transition-colors"
-                    >
-                      <Trash2 className="w-5 h-5" />
-                    </button>
-                  </div>
-                  <div className="p-4">
-                    <h3 className="font-medium text-lg mb-1">{item.name}</h3>
-                    <p className="text-gray-600 text-sm mb-2 line-clamp-2">{item.description}</p>
-                    <div className="flex items-center justify-between">
-                      <span className="font-semibold">${item.price.toFixed(2)}</span>
-                      <Button
-                        className="bg-[#1A1A1A] text-white hover:bg-[#1A1A1A]/90"
-                        onClick={() => addToCart(item, 1)}
-                      >
-                        <ShoppingBag className="w-4 h-4 mr-2" />
-                        Add to Cart
-                      </Button>
-                    </div>
-                  </div>
-                </div>
-              ))}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          {wishlistItems.map((item) => (
+            <div key={item.id} className="bg-white rounded-lg border p-4">
+              <div className="relative">
+                <img
+                  src={item.product.image_url}
+                  alt={item.product.name}
+                  className="w-full h-48 object-cover rounded-md mb-4"
+                />
+                <button
+                  onClick={() => removeFromWishlist(item.id)}
+                  className="absolute top-2 right-2 p-2 bg-white rounded-full shadow-md hover:bg-gray-100"
+                >
+                  <Heart className="w-5 h-5 text-red-500 fill-current" />
+                </button>
+              </div>
+              <h3 className="font-medium text-lg mb-2">{item.product.name}</h3>
+              <p className="text-gray-600 text-sm mb-4 line-clamp-2">{item.product.description}</p>
+              <div className="flex items-center justify-between">
+                <span className="text-lg font-semibold">GH₵ {item.product.price.toFixed(2)}</span>
+                <Link to={`/products/${item.product.id}`}>
+                  <Button variant="outline" className="border-[#1A1A1A] text-[#1A1A1A] hover:bg-[#1A1A1A] hover:text-white">
+                    View Details
+                  </Button>
+                </Link>
+              </div>
             </div>
-          </div>
+          ))}
         </div>
       </div>
       <Footer />

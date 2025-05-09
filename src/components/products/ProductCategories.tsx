@@ -1,15 +1,16 @@
 import Slider from 'react-slick';
 import { useNavigate } from 'react-router-dom';
-import { categories } from '../../data/categories';
+import { useCategories } from '../../hooks/useCategories';
 import "slick-carousel/slick/slick.css";
 import "slick-carousel/slick/slick-theme.css";
 import "../../styles/category-slider.css";
 
 const ProductCategories = () => {
   const navigate = useNavigate();
+  const { categories, loading } = useCategories();
 
-  const handleCategoryClick = (categoryName: string) => {
-    navigate(`/products?category=${encodeURIComponent(categoryName)}`);
+  const handleCategoryClick = (categoryId: string) => {
+    navigate(`/products?category=${categoryId}`);
   };
 
   const settings = {
@@ -46,6 +47,17 @@ const ProductCategories = () => {
     ]
   };
 
+  if (loading) {
+    return (
+      <div className="w-full px-0 sm:px-4 py-12 sm:py-20">
+        <h2 className="text-2xl font-bold text-[#1A1A1A] mb-8 sm:mb-14 text-center">View By Category</h2>
+        <div className="flex items-center justify-center min-h-[200px]">
+          <div className="w-8 h-8 border-4 border-primary border-t-transparent rounded-full animate-spin" />
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="w-full px-0 sm:px-4 py-12 sm:py-20">
       <h2 className="text-2xl font-bold text-[#1A1A1A] mb-8 sm:mb-14 text-center">View By Category</h2>
@@ -55,10 +67,10 @@ const ProductCategories = () => {
             <div key={category.id} className="px-2">
               <div 
                 className="relative aspect-square w-16 sm:w-32 md:w-36 lg:w-40 mx-auto rounded-full overflow-hidden group cursor-pointer"
-                onClick={() => handleCategoryClick(category.name)}
+                onClick={() => handleCategoryClick(category.id)}
               >
                 <img
-                  src={category.image}
+                  src={category.image_url}
                   alt={category.name}
                   className="object-cover w-full h-full transition-transform duration-300 group-hover:scale-105"
                 />

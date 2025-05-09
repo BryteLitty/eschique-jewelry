@@ -1,4 +1,4 @@
-import { useCart } from '../contexts/CartContext';
+import { useCart } from '../hooks/useCart';
 import { Button } from '../components/ui/button';
 import { Trash2, ArrowLeft } from 'lucide-react';
 import { Link } from 'react-router-dom';
@@ -6,9 +6,26 @@ import Header from '../components/shared/Header';
 import Footer from '../components/shared/Footer';
 
 const CartPage = () => {
-  const { items, removeFromCart, updateQuantity, totalItems, totalPrice } = useCart();
+  const { cartItems, removeFromCart, updateQuantity, loading } = useCart();
 
-  if (items.length === 0) {
+  const totalItems = cartItems.reduce((sum, item) => sum + item.quantity, 0);
+  const totalPrice = cartItems.reduce((sum, item) => sum + (item.product.price * item.quantity), 0);
+
+  if (loading) {
+    return (
+      <div className="min-h-screen">
+        <Header />
+        <div className="container max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16">
+          <div className="flex items-center justify-center">
+            <div className="w-8 h-8 border-4 border-primary border-t-transparent rounded-full animate-spin" />
+          </div>
+        </div>
+        <Footer />
+      </div>
+    );
+  }
+
+  if (cartItems.length === 0) {
     return (
       <div className="min-h-screen">
         <Header />
@@ -44,11 +61,11 @@ const CartPage = () => {
             </div>
 
             <div className="space-y-4">
-              {items.map((item) => (
-                <div key={item.product.id} className="flex gap-6 p-4 bg-white rounded-lg border">
+              {cartItems.map((item) => (
+                <div key={item.id} className="flex gap-6 p-4 bg-white rounded-lg border">
                   <div className="w-24 h-24 flex-shrink-0">
                     <img
-                      src={item.product.image}
+                      src={item.product.image_url}
                       alt={item.product.name}
                       className="w-full h-full object-cover rounded-md"
                     />
@@ -60,7 +77,7 @@ const CartPage = () => {
                         <p className="text-gray-600 text-sm mt-1">{item.product.description}</p>
                       </div>
                       <button
-                        onClick={() => removeFromCart(item.product.id)}
+                        onClick={() => removeFromCart(item.id)}
                         className="text-gray-500 hover:text-red-500 p-2"
                       >
                         <Trash2 className="w-5 h-5" />
@@ -70,21 +87,23 @@ const CartPage = () => {
                       <div className="flex items-center gap-4">
                         <div className="flex items-center border rounded-md">
                           <button
-                            onClick={() => updateQuantity(item.product.id, item.quantity - 1)}
+                            onClick={() => updateQuantity(item.id, item.quantity - 1)}
                             className="px-3 py-1 hover:bg-gray-100"
+                            disabled={item.quantity <= 1}
                           >
                             -
                           </button>
                           <span className="px-4 py-1">{item.quantity}</span>
                           <button
-                            onClick={() => updateQuantity(item.product.id, item.quantity + 1)}
+                            onClick={() => updateQuantity(item.id, item.quantity + 1)}
                             className="px-3 py-1 hover:bg-gray-100"
+                            disabled={item.quantity >= item.product.stock_quantity}
                           >
                             +
                           </button>
                         </div>
                         <span className="text-gray-600">
-                          ${(item.product.price * item.quantity).toFixed(2)}
+                          GH₵ {(item.product.price * item.quantity).toFixed(2)}
                         </span>
                       </div>
                     </div>
@@ -101,7 +120,7 @@ const CartPage = () => {
               <div className="space-y-4">
                 <div className="flex justify-between text-gray-600">
                   <span>Subtotal</span>
-                  <span>${totalPrice.toFixed(2)}</span>
+                  <span>GH₵ {totalPrice.toFixed(2)}</span>
                 </div>
                 <div className="flex justify-between text-gray-600">
                   <span>Shipping</span>
@@ -109,12 +128,12 @@ const CartPage = () => {
                 </div>
                 <div className="flex justify-between text-gray-600">
                   <span>Tax</span>
-                  <span>${(totalPrice * 0.1).toFixed(2)}</span>
+                  <span>GH₵ {(totalPrice * 0.1).toFixed(2)}</span>
                 </div>
                 <div className="border-t pt-4">
                   <div className="flex justify-between font-semibold">
                     <span>Total</span>
-                    <span>${(totalPrice + totalPrice * 0.1).toFixed(2)}</span>
+                    <span>GH₵ {(totalPrice + totalPrice * 0.1).toFixed(2)}</span>
                   </div>
                 </div>
                 <Button className="w-full bg-[#1A1A1A] text-white hover:bg-[#1A1A1A]/90 h-12">

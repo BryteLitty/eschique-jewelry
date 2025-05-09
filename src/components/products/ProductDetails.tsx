@@ -1,137 +1,214 @@
-import { useState } from 'react';
-import { Star, Heart, Share2, Truck, Shield, RefreshCw } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { Heart, Share2, Truck, Shield, RefreshCw } from 'lucide-react';
 import { Button } from '../ui/button';
-import type { Product } from '../../types/product';
+import { useNavigate } from 'react-router-dom';
+import { useAuth } from '../../contexts/AuthContext';
+import { useCart } from '../../hooks/useCart';
+import { useWishlist } from '../../hooks/useWishlist';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '../ui/dialog';
+
+interface Product {
+  id: string;
+  name: string;
+  description: string;
+  price: number;
+  image_url: string;
+  in_stock: boolean;
+  stock_quantity: number;
+  category_id: string;
+}
 
 interface ProductDetailsProps {
   product: Product;
 }
 
 const ProductDetails = ({ product }: ProductDetailsProps) => {
-  const [selectedImage, setSelectedImage] = useState(product.image);
   const [quantity, setQuantity] = useState(1);
+  const { user } = useAuth();
+  const navigate = useNavigate();
+  const { addToCart, refreshCart } = useCart();
+  const { addToWishlist, removeFromWishlist, isInWishlist, refreshWishlist } = useWishlist();
+  const [showLoginDialog, setShowLoginDialog] = useState(false);
+  const [isWishlisted, setIsWishlisted] = useState(false);
+
+  // Check if product is in wishlist when component mounts
+  useEffect(() => {
+    setIsWishlisted(isInWishlist(product.id));
+  }, [product.id, isInWishlist]);
 
   const handleQuantityChange = (value: number) => {
-    if (value >= 1) {
+    if (value >= 1 && value <= product.stock_quantity) {
       setQuantity(value);
     }
   };
 
+  const handleAddToCart = async () => {
+    if (!user) {
+      setShowLoginDialog(true);
+      return;
+    }
+
+    try {
+      await addToCart(product.id, quantity);
+      await refreshCart();
+    } catch (error) {
+      console.error('Error adding to cart:', error);
+    }
+  };
+
+  const handleWishlist = async () => {
+    if (!user) {
+      setShowLoginDialog(true);
+      return;
+    }
+
+    try {
+      if (isWishlisted) {
+        await removeFromWishlist(product.id);
+      } else {
+        await addToWishlist(product.id);
+      }
+      await refreshWishlist();
+      setIsWishlisted(!isWishlisted);
+    } catch (error) {
+      console.error('Error toggling wishlist:', error);
+    }
+  };
+
   return (
-    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-        {/* Image Gallery */}
-        <div className="space-y-4">
+    <>
+      <div className="max-w-7xl mx-auto">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+          {/* Main Image */}
           <div className="aspect-square rounded-lg overflow-hidden">
             <img
-              src={selectedImage}
+              src={product.image_url}
               alt={product.name}
               className="w-full h-full object-cover"
             />
           </div>
-          <div className="grid grid-cols-4 gap-4">
-            <button
-              onClick={() => setSelectedImage(product.image)}
-              className="aspect-square rounded-lg overflow-hidden border-2 border-transparent hover:border-[#8B5E3C] transition-colors"
-            >
-              <img
-                src={product.image}
-                alt={product.name}
-                className="w-full h-full object-cover"
-              />
-            </button>
-            {/* Add more thumbnail images here */}
-          </div>
-        </div>
 
-        {/* Product Info */}
-        <div className="space-y-6">
-          <div>
-            <h1 className="text-2xl sm:text-3xl font-bold text-[#1A1A1A] mb-2">
-              {product.name}
-            </h1>
-            <div className="flex items-center gap-2 mb-4">
-              <div className="flex items-center">
-                <Star className="w-5 h-5 fill-[#8B5E3C] text-[#8B5E3C]" />
-                <span className="ml-1 text-sm font-medium">{product.rating}</span>
+          {/* Product Info */}
+          <div className="space-y-6">
+            <div>
+              <h1 className="text-2xl sm:text-3xl font-bold text-[#1A1A1A] mb-2">
+                {product.name}
+              </h1>
+              <p className="text-2xl font-bold text-[#1A1A1A]">
+                GH₵ {product.price.toFixed(2)}
+              </p>
+            </div>
+
+            <p className="text-gray-600">{product.description}</p>
+
+            {/* Quantity Selector */}
+            <div className="flex items-center gap-4">
+              <div className="flex items-center border rounded-lg">
+                <button
+                  onClick={() => handleQuantityChange(quantity - 1)}
+                  className="px-3 py-2 text-gray-600 hover:bg-gray-100"
+                  disabled={quantity <= 1}
+                >
+                  -
+                </button>
+                <span className="px-4 py-2">{quantity}</span>
+                <button
+                  onClick={() => handleQuantityChange(quantity + 1)}
+                  className="px-3 py-2 text-gray-600 hover:bg-gray-100"
+                  disabled={quantity >= product.stock_quantity}
+                >
+                  +
+                </button>
               </div>
-              <span className="text-sm text-gray-500">({product.reviews} reviews)</span>
-            </div>
-            <p className="text-2xl font-bold text-[#1A1A1A]">
-              ${product.price.toFixed(2)}
-            </p>
-          </div>
-
-          <p className="text-gray-600">{product.description}</p>
-
-          {/* Quantity Selector */}
-          <div className="flex items-center gap-4">
-            <div className="flex items-center border rounded-lg">
-              <button
-                onClick={() => handleQuantityChange(quantity - 1)}
-                className="px-3 py-2 text-gray-600 hover:bg-gray-100"
+              <Button
+                className="flex-1 bg-[#1A1A1A] text-white hover:bg-[#1A1A1A]/90 h-12"
+                size="lg"
+                disabled={!product.in_stock}
+                onClick={handleAddToCart}
               >
-                -
-              </button>
-              <span className="px-4 py-2">{quantity}</span>
-              <button
-                onClick={() => handleQuantityChange(quantity + 1)}
-                className="px-3 py-2 text-gray-600 hover:bg-gray-100"
+                {product.in_stock ? 'Add to Cart' : 'Out of Stock'}
+              </Button>
+              <Button
+                variant="outline"
+                size="icon"
+                className={`h-12 w-12 ${isWishlisted ? 'text-red-500' : ''}`}
+                onClick={handleWishlist}
               >
-                +
-              </button>
+                <Heart className="h-5 w-5" fill={isWishlisted ? 'currentColor' : 'none'} />
+              </Button>
+              <Button
+                variant="outline"
+                size="icon"
+                className="h-12 w-12"
+              >
+                <Share2 className="h-5 w-5" />
+              </Button>
             </div>
-            <Button
-              className="flex-1 bg-[#1A1A1A] text-white hover:bg-[#1A1A1A]/90 h-12"
-              size="lg"
-            >
-              Add to Cart
-            </Button>
-            <Button
-              variant="outline"
-              size="icon"
-              className="h-12 w-12"
-            >
-              <Heart className="h-5 w-5" />
-            </Button>
-            <Button
-              variant="outline"
-              size="icon"
-              className="h-12 w-12"
-            >
-              <Share2 className="h-5 w-5" />
-            </Button>
-          </div>
 
-          {/* Product Features */}
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 pt-6 border-t">
-            <div className="flex items-center gap-2">
-              <Truck className="w-5 h-5 text-[#8B5E3C]" />
-              <span className="text-sm">Free Shipping</span>
+            {/* Product Features */}
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 pt-6 border-t">
+              <div className="flex items-center gap-2">
+                <Truck className="w-5 h-5 text-[#8B5E3C]" />
+                <span className="text-sm">Free Shipping</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <Shield className="w-5 h-5 text-[#8B5E3C]" />
+                <span className="text-sm">2 Year Warranty</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <RefreshCw className="w-5 h-5 text-[#8B5E3C]" />
+                <span className="text-sm">Easy Returns</span>
+              </div>
             </div>
-            <div className="flex items-center gap-2">
-              <Shield className="w-5 h-5 text-[#8B5E3C]" />
-              <span className="text-sm">2 Year Warranty</span>
-            </div>
-            <div className="flex items-center gap-2">
-              <RefreshCw className="w-5 h-5 text-[#8B5E3C]" />
-              <span className="text-sm">Easy Returns</span>
-            </div>
-          </div>
 
-          {/* Additional Info */}
-          <div className="pt-6 border-t">
-            <h3 className="font-semibold mb-2">Product Details</h3>
-            <ul className="text-sm text-gray-600 space-y-2">
-              <li>• Category: {product.category}</li>
-              <li>• Material: Premium Quality</li>
-              <li>• Dimensions: 10 x 5 x 2 inches</li>
-              <li>• Weight: 0.5 lbs</li>
-            </ul>
+            {/* Stock Status */}
+            <div className="pt-6 border-t">
+              <h3 className="font-semibold mb-2">Availability</h3>
+              <p className={product.in_stock ? 'text-green-600' : 'text-red-600'}>
+                {product.in_stock
+                  ? `In Stock (${product.stock_quantity} available)`
+                  : 'Out of Stock'}
+              </p>
+            </div>
           </div>
         </div>
       </div>
-    </div>
+
+      {/* Login Dialog */}
+      <Dialog open={showLoginDialog} onOpenChange={setShowLoginDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Login Required</DialogTitle>
+            <DialogDescription>
+              Please log in to add items to your cart or wishlist.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setShowLoginDialog(false)}
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={() => {
+                setShowLoginDialog(false);
+                navigate('/login');
+              }}
+            >
+              Login
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </>
   );
 };
 

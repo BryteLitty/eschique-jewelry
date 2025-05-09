@@ -1,8 +1,8 @@
 import { useState, useEffect } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import Product from '../components/products/Product';
-import { featuredProducts } from '../data/products';
-import { categories } from '../data/categories';
+import { useProducts } from '../hooks/useProducts';
+import { useCategories } from '../hooks/useCategories';
 import Header from '../components/shared/Header';
 import Footer from '../components/shared/Footer';
 import { Button } from '../components/ui/button';
@@ -13,6 +13,11 @@ const AllProductsPage = () => {
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
   const [isFilterOpen, setIsFilterOpen] = useState(false);
 
+  const { products, loading: productsLoading } = useProducts({
+    categoryId: selectedCategory || undefined
+  });
+  const { categories, loading: categoriesLoading } = useCategories();
+
   // Get category from URL on initial load
   useEffect(() => {
     const categoryFromUrl = searchParams.get('category');
@@ -21,10 +26,19 @@ const AllProductsPage = () => {
     }
   }, [searchParams]);
 
-  // Filter products based on selected category
-  const filteredProducts = selectedCategory
-    ? featuredProducts.filter(product => product.category === selectedCategory)
-    : featuredProducts;
+  if (productsLoading || categoriesLoading) {
+    return (
+      <div className="min-h-screen">
+        <Header />
+        <div className="container max-w-8xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+          <div className="flex items-center justify-center min-h-[400px]">
+            <div className="w-8 h-8 border-4 border-primary border-t-transparent rounded-full animate-spin" />
+          </div>
+        </div>
+        <Footer />
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen">
@@ -38,7 +52,7 @@ const AllProductsPage = () => {
             onClick={() => setIsFilterOpen(!isFilterOpen)}
           >
             <Filter className="w-4 h-4" />
-            {selectedCategory ? `Filter: ${selectedCategory}` : 'Filter Products'}
+            {selectedCategory ? `Filter: ${categories.find(c => c.id === selectedCategory)?.name}` : 'Filter Products'}
           </Button>
         </div>
 
@@ -61,9 +75,9 @@ const AllProductsPage = () => {
                 {categories.map((category) => (
                   <button
                     key={category.id}
-                    onClick={() => setSelectedCategory(category.name)}
+                    onClick={() => setSelectedCategory(category.id)}
                     className={`w-full text-left px-3 py-2 rounded-md transition-colors ${
-                      selectedCategory === category.name
+                      selectedCategory === category.id
                         ? 'bg-[#8B5E3C] text-white'
                         : 'hover:bg-gray-100'
                     }`}
@@ -79,20 +93,22 @@ const AllProductsPage = () => {
           <div className="flex-1">
             <div className="mb-6">
               <h1 className="text-2xl font-bold text-[#1A1A1A]">
-                {selectedCategory ? selectedCategory : 'All Products'}
+                {selectedCategory 
+                  ? categories.find(c => c.id === selectedCategory)?.name 
+                  : 'All Products'}
               </h1>
               <p className="text-gray-600 mt-1">
-                {filteredProducts.length} products found
+                {products.length} products found
               </p>
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-              {filteredProducts.map((product) => (
+              {products.map((product) => (
                 <Product key={product.id} product={product} />
               ))}
             </div>
 
-            {filteredProducts.length === 0 && (
+            {products.length === 0 && (
               <div className="text-center py-12">
                 <p className="text-gray-600">No products found in this category.</p>
               </div>

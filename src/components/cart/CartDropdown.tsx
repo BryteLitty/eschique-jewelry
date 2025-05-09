@@ -1,6 +1,6 @@
 import { useRef, useEffect } from 'react';
 import { X, Plus, Minus, ShoppingBag } from 'lucide-react';
-import { useCart } from '../../contexts/CartContext';
+import { useCart } from '../../hooks/useCart';
 import { Button } from '../ui/button';
 import { useNavigate } from 'react-router-dom';
 
@@ -11,8 +11,11 @@ interface CartDropdownProps {
 
 const CartDropdown = ({ isOpen, onClose }: CartDropdownProps) => {
   const dropdownRef = useRef<HTMLDivElement>(null);
-  const { items, removeFromCart, updateQuantity, totalItems, totalPrice } = useCart();
+  const { cartItems, removeFromCart, updateQuantity, loading } = useCart();
   const navigate = useNavigate();
+
+  const totalItems = cartItems.reduce((sum, item) => sum + item.quantity, 0);
+  const totalPrice = cartItems.reduce((sum, item) => sum + (item.product.price * item.quantity), 0);
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -50,18 +53,22 @@ const CartDropdown = ({ isOpen, onClose }: CartDropdownProps) => {
 
           {/* Cart Items */}
           <div className="flex-1 overflow-y-auto p-4">
-            {items.length === 0 ? (
+            {loading ? (
+              <div className="flex items-center justify-center h-full">
+                <div className="w-8 h-8 border-4 border-primary border-t-transparent rounded-full animate-spin" />
+              </div>
+            ) : cartItems.length === 0 ? (
               <div className="flex flex-col items-center justify-center h-full text-gray-500">
                 <ShoppingBag className="w-12 h-12 mb-4" />
                 <p>Your cart is empty</p>
               </div>
             ) : (
               <div className="space-y-4">
-                {items.map((item) => (
-                  <div key={item.product.id} className="flex gap-4">
+                {cartItems.map((item) => (
+                  <div key={item.id} className="flex gap-4">
                     <div className="w-20 h-20 flex-shrink-0">
                       <img
-                        src={item.product.image}
+                        src={item.product.image_url}
                         alt={item.product.name}
                         className="w-full h-full object-cover rounded-md"
                       />
@@ -70,24 +77,26 @@ const CartDropdown = ({ isOpen, onClose }: CartDropdownProps) => {
                       <div className="flex justify-between">
                         <h3 className="font-medium">{item.product.name}</h3>
                         <button
-                          onClick={() => removeFromCart(item.product.id)}
+                          onClick={() => removeFromCart(item.id)}
                           className="text-gray-500 hover:text-red-500"
                         >
                           <X className="w-4 h-4" />
                         </button>
                       </div>
-                      <p className="text-sm text-gray-500">${item.product.price.toFixed(2)}</p>
+                      <p className="text-sm text-gray-500">GH₵ {item.product.price.toFixed(2)}</p>
                       <div className="flex items-center gap-2 mt-2">
                         <button
-                          onClick={() => updateQuantity(item.product.id, item.quantity - 1)}
+                          onClick={() => updateQuantity(item.id, item.quantity - 1)}
                           className="p-1 hover:bg-gray-100 rounded"
+                          disabled={item.quantity <= 1}
                         >
                           <Minus className="w-4 h-4" />
                         </button>
                         <span>{item.quantity}</span>
                         <button
-                          onClick={() => updateQuantity(item.product.id, item.quantity + 1)}
+                          onClick={() => updateQuantity(item.id, item.quantity + 1)}
                           className="p-1 hover:bg-gray-100 rounded"
+                          disabled={item.quantity >= item.product.stock_quantity}
                         >
                           <Plus className="w-4 h-4" />
                         </button>
@@ -100,11 +109,11 @@ const CartDropdown = ({ isOpen, onClose }: CartDropdownProps) => {
           </div>
 
           {/* Footer */}
-          {items.length > 0 && (
+          {cartItems.length > 0 && (
             <div className="border-t p-4">
               <div className="flex justify-between mb-4">
                 <span className="font-medium">Total</span>
-                <span className="font-bold">${totalPrice.toFixed(2)}</span>
+                <span className="font-bold">GH₵ {totalPrice.toFixed(2)}</span>
               </div>
               <Button
                 className="w-full bg-[#1A1A1A] text-white hover:bg-[#1A1A1A]/90"

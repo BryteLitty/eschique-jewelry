@@ -81,6 +81,10 @@ export default function ProductsPage() {
   const [stockStatus, setStockStatus] = useState<string>('all');
   const [showFeatured, setShowFeatured] = useState<boolean>(false);
 
+  const handlePriceRangeChange = (value: number[]) => {
+    setPriceRange([value[0], value[1]]);
+  };
+
   const {
     register,
     handleSubmit,
@@ -452,7 +456,7 @@ export default function ProductsPage() {
                 <span className="text-sm">GH₵{priceRange[0]}</span>
                 <Slider
                   value={priceRange}
-                  onValueChange={setPriceRange}
+                  onValueChange={handlePriceRangeChange}
                   min={0}
                   max={1000}
                   step={10}
