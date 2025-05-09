@@ -17,6 +17,8 @@ import {
   DialogHeader,
   DialogTitle,
   DialogTrigger,
+  DialogDescription,
+  DialogFooter,
 } from '../../components/ui/dialog';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -40,9 +42,13 @@ const categorySchema = z.object({
 export default function CategoriesPage() {
   const [categories, setCategories] = useState<Category[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
-  const [isLoading, setIsLoading] = useState(true);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [editingCategory, setEditingCategory] = useState<Category | null>(null);
   const [uploadError, setUploadError] = useState<string | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isDeleting, setIsDeleting] = useState<string | null>(null);
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [categoryToDelete, setCategoryToDelete] = useState<Category | null>(null);
 
   const {
     register,
@@ -77,24 +83,93 @@ export default function CategoriesPage() {
       setCategories(data || []);
     } catch (error) {
       console.error('Error fetching categories:', error);
-    } finally {
-      setIsLoading(false);
     }
+  };
+
+  const handleEdit = (category: Category) => {
+    setEditingCategory(category);
+    setValue('name', category.name);
+    setValue('description', category.description);
+    setValue('image_url', category.image_url);
+    setIsDialogOpen(true);
+  };
+
+  const handleDelete = async (categoryId: string) => {
+    try {
+      setIsDeleting(categoryId);
+      
+      // Get the category to delete
+      const { data: category, error: fetchError } = await supabase
+        .from('categories')
+        .select('image_url')
+        .eq('id', categoryId)
+        .single();
+
+      if (fetchError) throw fetchError;
+
+      // Delete the category
+      const { error: deleteError } = await supabase
+        .from('categories')
+        .delete()
+        .eq('id', categoryId);
+
+      if (deleteError) throw deleteError;
+
+      // Delete the image from storage if it exists
+      if (category?.image_url) {
+        const filePath = category.image_url.split('/').pop();
+        if (filePath) {
+          const { error: storageError } = await supabase.storage
+            .from('products')
+            .remove([`categories/${filePath}`]);
+
+          if (storageError) {
+            console.error('Error deleting image from storage:', storageError);
+          }
+        }
+      }
+
+      await fetchCategories();
+      setDeleteDialogOpen(false);
+      setCategoryToDelete(null);
+    } catch (error) {
+      console.error('Error deleting category:', error);
+    } finally {
+      setIsDeleting(null);
+    }
+  };
+
+  const openDeleteDialog = (category: Category) => {
+    setCategoryToDelete(category);
+    setDeleteDialogOpen(true);
   };
 
   const onSubmit = async (data: z.infer<typeof categorySchema>) => {
     try {
-      const { error } = await supabase
-        .from('categories')
-        .insert([data]);
+      setIsSubmitting(true);
+      if (editingCategory) {
+        const { error } = await supabase
+          .from('categories')
+          .update(data)
+          .eq('id', editingCategory.id);
 
-      if (error) throw error;
+        if (error) throw error;
+      } else {
+        const { error } = await supabase
+          .from('categories')
+          .insert([data]);
+
+        if (error) throw error;
+      }
 
       await fetchCategories();
       setIsDialogOpen(false);
+      setEditingCategory(null);
       reset();
     } catch (error) {
-      console.error('Error creating category:', error);
+      console.error('Error saving category:', error);
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -107,7 +182,13 @@ export default function CategoriesPage() {
     <div className="p-6">
       <div className="flex justify-between items-center mb-6">
         <h1 className="text-2xl font-bold">Categories</h1>
-        <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+        <Dialog open={isDialogOpen} onOpenChange={(open) => {
+          setIsDialogOpen(open);
+          if (!open) {
+            setEditingCategory(null);
+            reset();
+          }
+        }}>
           <DialogTrigger asChild>
             <Button>
               <Plus className="w-4 h-4 mr-2" />
@@ -116,25 +197,19 @@ export default function CategoriesPage() {
           </DialogTrigger>
           <DialogContent>
             <DialogHeader>
-              <DialogTitle>Add New Category</DialogTitle>
+              <DialogTitle>{editingCategory ? 'Edit Category' : 'Add New Category'}</DialogTitle>
             </DialogHeader>
             <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
               <div>
                 <label className="block text-sm font-medium mb-1">Name</label>
-                <Input 
-                  {...register('name')} 
-                  className="focus:ring-primary/20 focus:border-primary"
-                />
+                <Input {...register('name')} />
                 {errors.name && (
                   <p className="text-red-500 text-sm mt-1">{errors.name.message}</p>
                 )}
               </div>
               <div>
                 <label className="block text-sm font-medium mb-1">Description</label>
-                <Input 
-                  {...register('description')} 
-                  className="focus:ring-primary/20 focus:border-primary"
-                />
+                <Input {...register('description')} />
                 {errors.description && (
                   <p className="text-red-500 text-sm mt-1">{errors.description.message}</p>
                 )}
@@ -155,7 +230,7 @@ export default function CategoriesPage() {
                 )}
               </div>
               <Button type="submit" className="w-full">
-                Add Category
+                {editingCategory ? 'Update Category' : 'Add Category'}
               </Button>
             </form>
           </DialogContent>
@@ -198,11 +273,26 @@ export default function CategoriesPage() {
                 <TableCell>{category.description}</TableCell>
                 <TableCell>
                   <div className="flex gap-2">
-                    <Button variant="ghost" size="icon">
+                    <Button 
+                      variant="ghost" 
+                      size="icon"
+                      onClick={() => handleEdit(category)}
+                      disabled={isSubmitting}
+                    >
                       <Pencil className="w-4 h-4" />
                     </Button>
-                    <Button variant="ghost" size="icon" className="text-red-600">
-                      <Trash2 className="w-4 h-4" />
+                    <Button 
+                      variant="ghost" 
+                      size="icon" 
+                      className="text-red-600"
+                      onClick={() => openDeleteDialog(category)}
+                      disabled={isDeleting === category.id}
+                    >
+                      {isDeleting === category.id ? (
+                        <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                      ) : (
+                        <Trash2 className="w-4 h-4" />
+                      )}
                     </Button>
                   </div>
                 </TableCell>
@@ -211,6 +301,43 @@ export default function CategoriesPage() {
           </TableBody>
         </Table>
       </div>
+
+      {/* Delete Confirmation Dialog */}
+      <Dialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+        <DialogContent className="sm:max-w-[425px] backdrop-blur-sm bg-white/95">
+          <DialogHeader>
+            <DialogTitle>Delete Category</DialogTitle>
+            <DialogDescription>
+              Are you sure you want to delete "{categoryToDelete?.name}"? This action cannot be undone.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter className="flex gap-2 justify-end mt-4">
+            <Button
+              variant="outline"
+              onClick={() => {
+                setDeleteDialogOpen(false);
+                setCategoryToDelete(null);
+              }}
+            >
+              Cancel
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={() => categoryToDelete && handleDelete(categoryToDelete.id)}
+              disabled={isDeleting === categoryToDelete?.id}
+            >
+              {isDeleting === categoryToDelete?.id ? (
+                <>
+                  <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin mr-2" />
+                  Deleting...
+                </>
+              ) : (
+                'Delete'
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 } 
