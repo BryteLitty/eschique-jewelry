@@ -26,7 +26,7 @@ import WishlistAnalyticsPage from './pages/dashboard/WishlistAnalyticsPage';
 import UserDashboard from './pages/dashboard/UserDashboard';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { ReactQueryDevtools } from '@tanstack/react-query-devtools';
-
+import CheckoutPage from './pages/CheckoutPage';
 // Create a client
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -92,6 +92,12 @@ createRoot(document.getElementById('root')!).render(
                   <SettingsPage />
                 </ProtectedRoute>
               } />
+              <Route path="/checkout" element={
+                <ProtectedRoute>
+                  <CheckoutPage />
+                </ProtectedRoute>
+              } />
+
 
               {/* 404 Route - Must be last */}
               <Route path="*" element={<NotFound />} />
