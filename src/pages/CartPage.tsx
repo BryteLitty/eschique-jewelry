@@ -153,9 +153,11 @@ const CartPage = () => {
                     <span>GH₵ {(totalPrice + totalPrice * 0.1).toFixed(2)}</span>
                   </div>
                 </div>
-                <Button className="w-full bg-[#1A1A1A] text-white hover:bg-[#1A1A1A]/90 h-12">
-                  Proceed to Checkout
-                </Button>
+                <Link to="/checkout">
+                  <Button className="w-full bg-[#1A1A1A] text-white hover:bg-[#1A1A1A]/90 h-12">
+                    Proceed to Checkout
+                  </Button>
+                </Link>
                 <div className="text-center text-sm text-gray-500">
                   <p>We accept:</p>
                   <div className="flex justify-center gap-2 mt-2">
