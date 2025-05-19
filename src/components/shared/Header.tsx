@@ -114,7 +114,7 @@ const Header = () => {
                     ) : (
                       <>
                         <Link
-                          to="/dashboard"
+                          to="/profile"
                           className="block px-4 py-2 text-sm text-[#1A1A1A] hover:bg-[#F9F9F9]"
                           onClick={() => setIsDropdownOpen(false)}
                         >
@@ -124,7 +124,7 @@ const Header = () => {
                           </div>
                         </Link>
                         <Link
-                          to="/orders"
+                          to="/profile/orders"
                           className="block px-4 py-2 text-sm text-[#1A1A1A] hover:bg-[#F9F9F9]"
                           onClick={() => setIsDropdownOpen(false)}
                         >
@@ -152,7 +152,7 @@ const Header = () => {
           ) : (
             <Link 
               to="/login" 
-              className="px-4 py-2 text-[#1A1A1A] hover:text-[#8B5E3C] transition-colors"
+              className="px-4 py-2 text-[#1A1A1A] hover:text-[#8B5E3C] transition-colors cursor-pointer"
             >
               Login
             </Link>

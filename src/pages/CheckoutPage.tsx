@@ -18,16 +18,11 @@ import {
   FormMessage,
 } from '../components/ui/form';
 import { Input } from '../components/ui/input';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '../components/ui/select';
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card';
-import { CreditCard, Truck, Package, Loader2 } from 'lucide-react';
+import { Truck, Package, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
+import { usePaystack } from '../hooks/usePaystack';
+import { useQueryClient } from '@tanstack/react-query';
 
 const shippingFormSchema = z.object({
   fullName: z.string().min(1, 'Full name is required'),
@@ -39,9 +34,6 @@ const shippingFormSchema = z.object({
   state: z.string().min(1, 'State is required'),
   country: z.string().min(1, 'Country is required'),
   postalCode: z.string().min(1, 'Postal code is required'),
-  paymentMethod: z.enum(['card', 'paypal'], {
-    required_error: 'Please select a payment method',
-  }),
 });
 
 // Add interface for user profile
@@ -63,11 +55,13 @@ interface UserProfile {
 const CheckoutPage = () => {
   const { user } = useAuth();
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
   const { cartItems, isLoading: cartLoading } = useCartQuery();
   const [isProcessing, setIsProcessing] = useState(false);
   const [isLoadingUserData, setIsLoadingUserData] = useState(true);
   const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
   const [isEditingAddress, setIsEditingAddress] = useState(false);
+  const { initializePayment } = usePaystack();
 
   const form = useForm<z.infer<typeof shippingFormSchema>>({
     resolver: zodResolver(shippingFormSchema),
@@ -81,7 +75,6 @@ const CheckoutPage = () => {
       state: '',
       country: '',
       postalCode: '',
-      paymentMethod: 'card',
     },
   });
 
@@ -118,7 +111,6 @@ const CheckoutPage = () => {
           state: data.state || '',
           country: data.country || '',
           postalCode: data.postal_code || '',
-          paymentMethod: 'card',
         });
       } catch (error) {
         console.error('Error fetching user profile:', error);
@@ -132,8 +124,8 @@ const CheckoutPage = () => {
     fetchUserProfile();
   }, [user, form]);
 
-  const totalItems = cartItems?.reduce((sum, item) => sum + item.quantity, 0) || 0;
-  const subtotal = cartItems?.reduce((sum, item) => sum + (item.product.price * item.quantity), 0) || 0;
+  const totalItems = cartItems?.reduce((sum: number, item) => sum + item.quantity, 0) || 0;
+  const subtotal = cartItems?.reduce((sum: number, item) => sum + (item.product.price * item.quantity), 0) || 0;
   const shipping = 0; // Free shipping
   const tax = subtotal * 0.1; // 10% tax
   const total = subtotal + shipping + tax;
@@ -183,6 +175,70 @@ const CheckoutPage = () => {
       toast.error('Failed to process checkout');
     } finally {
       setIsProcessing(false);
+    }
+  };
+
+  const clearUserCart = async () => {
+    if (!user) return;
+    
+    try {
+      // Delete all cart items for the user
+      const { error } = await supabase
+        .from('cart_items')
+        .delete()
+        .eq('user_id', user.id);
+
+      if (error) throw error;
+
+      // Invalidate cart query to refresh UI
+      await queryClient.invalidateQueries({ queryKey: ['cart'] });
+    } catch (error) {
+      console.error('Error clearing cart:', error);
+      // Don't show error to user since payment was successful
+    }
+  };
+
+  const handlePayment = async () => {
+    if (!user?.email) {
+      toast.error('Please log in to continue');
+      return;
+    }
+
+    try {
+      const { transaction, order } = await initializePayment({
+        email: user.email,
+        amount: Math.round(total * 100), // Convert to pesewas
+        metadata: {
+          order_items: cartItems?.map(item => ({
+            product_id: item.product_id,
+            quantity: item.quantity,
+            price: item.product.price
+          })),
+          shipping_address: {
+            full_name: userProfile?.full_name || undefined,
+            address: userProfile?.address || undefined,
+            city: userProfile?.city || undefined,
+            state: userProfile?.state || undefined,
+            country: userProfile?.country || undefined,
+            postal_code: userProfile?.postal_code || undefined,
+            phone_number: userProfile?.phone_number || undefined
+          }
+        }
+      });
+
+      // Clear the cart after successful payment
+      await clearUserCart();
+
+      // Redirect to success page with order details
+      navigate('/order-success', {
+        replace: true,
+        state: {
+          orderId: order.id,
+          transactionRef: transaction.reference
+        }
+      });
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : 'Payment failed');
     }
   };
 
@@ -241,7 +297,6 @@ const CheckoutPage = () => {
             </div>
 
             {!isEditingAddress && userProfile?.address ? (
-              // Show address confirmation view
               <>
                 <Card>
                   <CardHeader>
@@ -273,54 +328,22 @@ const CheckoutPage = () => {
                   </CardContent>
                 </Card>
 
-                <Form {...form}>
-                  <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
-                    <Card>
-                      <CardHeader>
-                        <CardTitle className="flex items-center gap-2">
-                          <CreditCard className="w-5 h-5" />
-                          Payment Method
-                        </CardTitle>
-                      </CardHeader>
-                      <CardContent>
-                        <FormField
-                          control={form.control}
-                          name="paymentMethod"
-                          render={({ field }) => (
-                            <FormItem>
-                              <Select
-                                onValueChange={field.onChange}
-                                defaultValue={field.value}
-                              >
-                                <FormControl>
-                                  <SelectTrigger>
-                                    <SelectValue placeholder="Select a payment method" />
-                                  </SelectTrigger>
-                                </FormControl>
-                                <SelectContent>
-                                  <SelectItem value="card">Credit/Debit Card</SelectItem>
-                                  <SelectItem value="paypal">PayPal</SelectItem>
-                                </SelectContent>
-                              </Select>
-                              <FormMessage />
-                            </FormItem>
-                          )}
-                        />
-                      </CardContent>
-                    </Card>
-
-                    <Button
-                      type="submit"
-                      className="w-full bg-[#1A1A1A] text-white hover:bg-[#1A1A1A]/90 h-12"
-                      disabled={isProcessing}
-                    >
-                      {isProcessing ? 'Processing...' : `Pay GH₵ ${total.toFixed(2)}`}
-                    </Button>
-                  </form>
-                </Form>
+                <Button
+                  onClick={handlePayment}
+                  className="w-full bg-[#1A1A1A] text-white hover:bg-[#1A1A1A]/90 h-12"
+                  disabled={isProcessing}
+                >
+                  {isProcessing ? (
+                    <div className="flex items-center justify-center gap-2">
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                      <span>Processing Payment...</span>
+                    </div>
+                  ) : (
+                    `Pay GH₵ ${total.toFixed(2)}`
+                  )}
+                </Button>
               </>
             ) : (
-              // Show edit form
               <Form {...form}>
                 <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
                   <Card>

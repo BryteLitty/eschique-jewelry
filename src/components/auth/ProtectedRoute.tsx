@@ -1,4 +1,4 @@
-import { Navigate, useLocation } from 'react-router-dom';
+import { Navigate } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
 
 interface ProtectedRouteProps {
@@ -7,20 +7,16 @@ interface ProtectedRouteProps {
 }
 
 const ProtectedRoute = ({ children, requireAdmin = false }: ProtectedRouteProps) => {
-  const { user, isAdmin, isLoading } = useAuth();
-  const location = useLocation();
-
-  if (isLoading) {
-    return <div>Loading...</div>; // You can replace this with a proper loading component
-  }
+  const { user } = useAuth();
 
   if (!user) {
-    // Redirect to login page but save the attempted url
-    return <Navigate to="/login" state={{ from: location }} replace />;
+    // Redirect to login page if not authenticated
+    return <Navigate to="/login" replace />;
   }
 
-  if (requireAdmin && !isAdmin) {
-    // Redirect to home if user is not an admin
+  // If admin access is required but user is not an admin
+  if (requireAdmin && !user.user_metadata?.is_admin) {
+    // Redirect to home page if not an admin
     return <Navigate to="/" replace />;
   }
 

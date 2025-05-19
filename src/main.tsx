@@ -1,4 +1,4 @@
-import { BrowserRouter, Routes, Route } from 'react-router-dom'
+import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
 import { Toaster } from 'sonner'
@@ -27,6 +27,7 @@ import UserDashboard from './pages/dashboard/UserDashboard';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { ReactQueryDevtools } from '@tanstack/react-query-devtools';
 import CheckoutPage from './pages/CheckoutPage';
+import OrderSuccessPage from './pages/OrderSuccessPage';
 // Create a client
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -57,7 +58,7 @@ createRoot(document.getElementById('root')!).render(
               
               {/* Admin Dashboard Routes */}
               <Route path="/dashboard" element={
-                <ProtectedRoute requireAdmin>
+                <ProtectedRoute requireAdmin={true}>
                   <DashboardLayout />
                 </ProtectedRoute>
               }>
@@ -76,6 +77,8 @@ createRoot(document.getElementById('root')!).render(
                 </ProtectedRoute>
               }>
                 <Route index element={<UserDashboard />} />
+                <Route path="settings" element={<SettingsPage />} />
+                <Route path="orders" element={<div>Order History</div>} />
               </Route>
               <Route path="/cart" element={
                 <ProtectedRoute>
@@ -87,17 +90,19 @@ createRoot(document.getElementById('root')!).render(
                   <WishlistPage />
                 </ProtectedRoute>
               } />
-              <Route path="/settings" element={
-                <ProtectedRoute>
-                  <SettingsPage />
-                </ProtectedRoute>
-              } />
               <Route path="/checkout" element={
                 <ProtectedRoute>
                   <CheckoutPage />
                 </ProtectedRoute>
               } />
+              <Route path="/order-success" element={
+                <ProtectedRoute>
+                  <OrderSuccessPage />
+                </ProtectedRoute>
+              } />
 
+              {/* Redirect /account to /profile */}
+              <Route path="/account" element={<Navigate to="/profile" replace />} />
 
               {/* 404 Route - Must be last */}
               <Route path="*" element={<NotFound />} />
