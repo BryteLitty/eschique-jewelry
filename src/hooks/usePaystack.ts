@@ -2,7 +2,7 @@ import { useState } from 'react';
 import PaystackPop from '@paystack/inline-js';
 import { useAuth } from '../contexts/AuthContext';
 import { orderService } from '../services/orderService';
-import type { Order } from '../types/order';
+import type { Order, CreateOrderData, PaymentStatus, OrderStatus } from '../types/order';
 
 interface PaystackConfig {
   email: string;
@@ -16,21 +16,17 @@ interface PaystackConfig {
       price: number;
     }>;
     shipping_address?: {
-      full_name?: string;
-      address?: string;
-      city?: string;
-      state?: string;
-      country?: string;
-      postal_code?: string;
-      phone_number?: string;
+      full_name: string;
+      address_line1: string;
+      address_line2?: string;
+      city: string;
+      state: string;
+      postal_code: string;
+      country: string;
+      phone: string;
     };
     [key: string]: unknown;
   };
-}
-
-export interface PaystackError {
-  message: string;
-  issues?: Array<{ message: string }>;
 }
 
 interface PaystackTransaction {
@@ -41,16 +37,25 @@ interface PaystackTransaction {
   message: string;
 }
 
+export interface PaystackError {
+  message: string;
+  issues?: Array<{ message: string }>;
+}
+
 interface UsePaystackReturn {
   initializePayment: (config: PaystackConfig) => Promise<{ transaction: PaystackTransaction; order: Order }>;
   isProcessing: boolean;
 }
 
-export const usePaystack = (): UsePaystackReturn => {
+export function usePaystack(): UsePaystackReturn {
   const [isProcessing, setIsProcessing] = useState(false);
   const { user } = useAuth();
 
-  const validateConfig = (config: PaystackConfig) => {
+  const initializePayment = async (config: PaystackConfig): Promise<{ transaction: PaystackTransaction; order: Order }> => {
+    if (!user) {
+      throw new Error('User not authenticated');
+    }
+
     if (!config.email) throw new Error('Email is required');
     if (!config.amount) throw new Error('Amount is required');
     if (config.amount < 100) throw new Error('Amount must be at least 100 pesewas (1 GHS)');
@@ -60,79 +65,81 @@ export const usePaystack = (): UsePaystackReturn => {
     if (!import.meta.env.VITE_PAYSTACK_PUBLIC_KEY) {
       throw new Error('Paystack public key is not configured');
     }
-  };
 
-  const createOrder = async (
-    amount: number,
-    userId: string
-  ) => {
+    setIsProcessing(true);
+
     try {
-      const order = await orderService.createOrder({
-        user_id: userId,
-        total_amount: amount / 100, // Convert pesewas to GHS
-        status: 'Paid',
-      });
+      // Create order first
+      const orderData: CreateOrderData = {
+        user_id: user.id,
+        order_number: `ORD-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
+        total_amount: config.amount / 100, // Convert from pesewas to cedis
+        status: 'pending' as OrderStatus,
+        payment_status: 'pending' as PaymentStatus,
+        shipping_address: config.metadata?.shipping_address || {
+          full_name: '',
+          address_line1: '',
+          address_line2: '',
+          city: '',
+          state: '',
+          postal_code: '',
+          country: '',
+          phone: '',
+        },
+        order_items: config.metadata?.order_items?.map(item => ({
+          product_id: item.product_id,
+          quantity: item.quantity,
+          unit_price: item.price
+        })) || []
+      };
 
+      console.log('Creating order with data:', orderData);
+      const order = await orderService.createOrder(orderData);
       console.log('Order created successfully:', order);
-      return order;
-    } catch (error) {
-      console.error('Error creating order:', error);
-      throw new Error('Failed to create order after payment');
-    }
-  };
 
-  const initializePayment = async (config: PaystackConfig): Promise<{ transaction: PaystackTransaction; order: Order }> => {
-    if (!user) throw new Error('User must be authenticated to make payment');
-    
-    try {
-      validateConfig(config);
-      setIsProcessing(true);
-      
-      const paystack = new PaystackPop();
-      console.log('Payment configuration:', {
-        email: config.email,
-        amount: config.amount,
-        currency: config.currency || 'GHS',
-        metadata: config.metadata
+      // Initialize Paystack payment
+      const handler = new PaystackPop();
+      return new Promise<{ transaction: PaystackTransaction; order: Order }>((resolve, reject) => {
+        handler.newTransaction({
+          key: import.meta.env.VITE_PAYSTACK_PUBLIC_KEY,
+          email: config.email,
+          amount: config.amount,
+          currency: config.currency || 'GHS',
+          ref: order.order_number,
+          metadata: {
+            ...config.metadata,
+            order_id: order.id,
+            order_number: order.order_number
+          },
+          onSuccess: async (transaction) => {
+            try {
+              // Update both payment status and order status
+              const updatedOrder = await orderService.updatePaymentStatus(order.id, 'paid');
+              console.log('Payment status updated:', updatedOrder);
+
+              // Update order status to processing
+              const finalOrder = await orderService.updateOrderStatus(order.id, 'processing');
+              console.log('Order status updated:', finalOrder);
+              
+              // Resolve the promise with the transaction and final order state
+              resolve({ transaction, order: finalOrder });
+            } catch (error) {
+              console.error('Error in payment success flow:', error);
+              // If status updates fail, still resolve with the transaction and original order
+              resolve({ transaction, order });
+            }
+          },
+          onCancel: () => {
+            console.log('Payment cancelled');
+            // Update payment status to failed
+            orderService.updatePaymentStatus(order.id, 'failed').catch(console.error);
+            reject(new Error('Payment cancelled'));
+          },
+        });
       });
-
-      const transaction = await new Promise<PaystackTransaction>((resolve, reject) => {
-        try {
-          const paystackOptions = {
-            key: import.meta.env.VITE_PAYSTACK_PUBLIC_KEY,
-            email: config.email,
-            amount: Math.round(config.amount), // Ensure amount is a whole number
-            currency: config.currency || 'GHS',
-            ref: config.reference || generateReference(),
-            metadata: {
-              ...config.metadata,
-              user_id: user.id,
-            },
-            onSuccess: (transaction: PaystackTransaction) => {
-              console.log('Payment successful:', transaction);
-              resolve(transaction);
-            },
-            onCancel: () => {
-              console.log('Payment cancelled by user');
-              reject(new Error('Payment cancelled by user'));
-            },
-          };
-
-          console.log('Initializing Paystack with options:', paystackOptions);
-          paystack.newTransaction(paystackOptions);
-        } catch (error) {
-          console.error('Paystack initialization error:', error);
-          reject(new Error(`Failed to initialize payment: ${(error as Error).message}`));
-        }
-      });
-
-      // Create order after successful payment
-      const order = await createOrder(config.amount, user.id);
-
-      return { transaction, order };
     } catch (error) {
-      console.error('Payment error:', error);
-      throw error instanceof Error ? error : new Error('Payment failed');
+      console.error('Error in payment process:', error);
+      throw error;
     } finally {
       setIsProcessing(false);
     }
@@ -142,11 +149,4 @@ export const usePaystack = (): UsePaystackReturn => {
     initializePayment,
     isProcessing,
   };
-};
-
-// Helper function to generate a unique reference
-const generateReference = () => {
-  const timestamp = Date.now().toString();
-  const random = Math.random().toString(36).substring(2, 15);
-  return `TRX-${timestamp}-${random}`;
-}; 
+} 

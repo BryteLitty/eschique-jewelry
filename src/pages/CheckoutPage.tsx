@@ -205,6 +205,26 @@ const CheckoutPage = () => {
     }
 
     try {
+      setIsProcessing(true);
+      // Create order with shipping information
+      const orderData = {
+        user_id: user.id,
+        order_number: `ORD-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
+        total_amount: total,
+        status: 'pending' as const,
+        payment_status: 'pending' as const,
+        shipping_address: {
+          full_name: userProfile?.full_name || '',
+          address_line1: userProfile?.address || '',
+          address_line2: '',
+          city: userProfile?.city || '',
+          state: userProfile?.state || '',
+          postal_code: userProfile?.postal_code || '',
+          country: userProfile?.country || '',
+          phone: userProfile?.phone_number || '',
+        },
+      };
+
       const { transaction, order } = await initializePayment({
         email: user.email,
         amount: Math.round(total * 100), // Convert to pesewas
@@ -214,20 +234,15 @@ const CheckoutPage = () => {
             quantity: item.quantity,
             price: item.product.price
           })),
-          shipping_address: {
-            full_name: userProfile?.full_name || undefined,
-            address: userProfile?.address || undefined,
-            city: userProfile?.city || undefined,
-            state: userProfile?.state || undefined,
-            country: userProfile?.country || undefined,
-            postal_code: userProfile?.postal_code || undefined,
-            phone_number: userProfile?.phone_number || undefined
-          }
+          shipping_address: orderData.shipping_address
         }
       });
 
       // Clear the cart after successful payment
       await clearUserCart();
+
+      // Reset processing state before navigation
+      setIsProcessing(false);
 
       // Redirect to success page with order details
       navigate('/order-success', {
@@ -238,7 +253,9 @@ const CheckoutPage = () => {
         }
       });
     } catch (error) {
+      console.error('Payment error:', error);
       toast.error(error instanceof Error ? error.message : 'Payment failed');
+      setIsProcessing(false);
     }
   };
 

@@ -122,14 +122,17 @@ export const useWishlist = () => {
     }
   };
 
-  const removeFromWishlist = async (productId: string) => {
+  const removeFromWishlist = async (id: string) => {
     if (!user) return;
 
     try {
+      // Check if the ID is a wishlist item ID or a product ID
+      const isWishlistItemId = wishlistItems.some(item => item.id === id);
+      
       const { error } = await supabase
         .from('wishlist_items')
         .delete()
-        .eq('product_id', productId)
+        .eq(isWishlistItemId ? 'id' : 'product_id', id)
         .eq('user_id', user.id);
 
       if (error) throw error;

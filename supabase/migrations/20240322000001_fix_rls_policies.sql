@@ -10,6 +10,9 @@ DROP POLICY IF EXISTS "Enable update for authenticated users only" ON public.pro
 DROP POLICY IF EXISTS "Enable delete for authenticated users only" ON public.products;
 DROP POLICY IF EXISTS "Anyone can view products" ON public.products;
 DROP POLICY IF EXISTS "Only admins can modify products" ON public.products;
+DROP POLICY IF EXISTS "Users can view their own orders" ON public.orders;
+DROP POLICY IF EXISTS "Users can create their own orders" ON public.orders;
+DROP POLICY IF EXISTS "Admins can view all orders" ON public.orders;
 
 -- Create simplified user policies
 CREATE POLICY "Enable read access for all authenticated users"
@@ -41,4 +44,31 @@ DROP POLICY IF EXISTS "Users can delete their own cart items" ON public.cart_ite
 
 CREATE POLICY "Users can manage their own cart"
     ON public.cart_items FOR ALL
-    USING (auth.uid() = user_id); 
+    USING (auth.uid() = user_id);
+
+-- Create orders policies
+CREATE POLICY "Users can view their own orders"
+    ON public.orders FOR SELECT
+    USING (auth.uid() = user_id);
+
+CREATE POLICY "Users can create their own orders"
+    ON public.orders FOR INSERT
+    WITH CHECK (auth.uid() = user_id);
+
+CREATE POLICY "Admins can view all orders"
+    ON public.orders FOR SELECT
+    USING (
+        EXISTS (
+            SELECT 1 FROM public.users
+            WHERE id = auth.uid() AND is_admin = true
+        )
+    );
+
+CREATE POLICY "Admins can manage all orders"
+    ON public.orders FOR ALL
+    USING (
+        EXISTS (
+            SELECT 1 FROM public.users
+            WHERE id = auth.uid() AND is_admin = true
+        )
+    ); 

@@ -47,8 +47,11 @@ CREATE TABLE wishlist (
 CREATE TABLE orders (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     user_id UUID REFERENCES users(id) ON DELETE SET NULL,
+    order_number VARCHAR NOT NULL,
     total_amount DECIMAL(10,2) NOT NULL,
-    status VARCHAR NOT NULL CHECK (status IN ('Pending', 'Paid', 'Shipped')),
+    status VARCHAR NOT NULL CHECK (status IN ('pending', 'processing', 'shipped', 'delivered', 'cancelled')),
+    payment_status VARCHAR NOT NULL CHECK (payment_status IN ('pending', 'paid', 'failed')),
+    shipping_address JSONB NOT NULL,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
 
@@ -73,6 +76,14 @@ ALTER TABLE order_items ENABLE ROW LEVEL SECURITY;
 CREATE POLICY "Users can view their own data"
     ON users FOR SELECT
     USING (auth.uid() = id);
+
+CREATE POLICY "Users can update their own data"
+    ON users FOR UPDATE
+    USING (auth.uid() = id);
+
+CREATE POLICY "Allow insert during signup"
+    ON users FOR INSERT
+    WITH CHECK (auth.uid() = id);
 
 -- Products policies
 CREATE POLICY "Anyone can view products"
@@ -112,6 +123,20 @@ CREATE POLICY "Users can create their own orders"
     ON orders FOR INSERT
     WITH CHECK (auth.uid() = user_id);
 
+CREATE POLICY "Admins can view all orders"
+    ON orders FOR SELECT
+    USING (EXISTS (
+        SELECT 1 FROM users 
+        WHERE id = auth.uid() AND is_admin = true
+    ));
+
+CREATE POLICY "Admins can manage all orders"
+    ON orders FOR ALL
+    USING (EXISTS (
+        SELECT 1 FROM users 
+        WHERE id = auth.uid() AND is_admin = true
+    ));
+
 -- Order items policies
 CREATE POLICY "Users can view their own order items"
     ON order_items FOR SELECT
@@ -119,4 +144,11 @@ CREATE POLICY "Users can view their own order items"
         SELECT 1 FROM orders 
         WHERE order_items.order_id = orders.id 
         AND orders.user_id = auth.uid()
+    ));
+
+CREATE POLICY "Admins can manage all order items"
+    ON order_items FOR ALL
+    USING (EXISTS (
+        SELECT 1 FROM users 
+        WHERE id = auth.uid() AND is_admin = true
     ));

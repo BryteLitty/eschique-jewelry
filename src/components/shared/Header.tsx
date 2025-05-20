@@ -102,7 +102,7 @@ const Header = () => {
                     </div>
                     {isAdmin ? (
                       <Link
-                        to="/admin"
+                        to="/dashboard"
                         className="block px-4 py-2 text-sm text-[#1A1A1A] hover:bg-[#F9F9F9]"
                         onClick={() => setIsDropdownOpen(false)}
                       >

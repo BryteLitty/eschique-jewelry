@@ -14,7 +14,6 @@ import { WishlistProvider } from './contexts/WishlistContext';
 import ProtectedRoute from './components/auth/ProtectedRoute';
 import DashboardLayout from './layouts/DashboardLayout';
 import UserLayout from './layouts/UserLayout';
-import DashboardHomepage from './pages/dashboard/DashboardHomepage';
 import ProductDetailPage from './pages/ProductDetailPage';
 import AllProductsPage from './pages/AllProductsPage';
 import CartPage from './pages/CartPage';
@@ -28,6 +27,10 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { ReactQueryDevtools } from '@tanstack/react-query-devtools';
 import CheckoutPage from './pages/CheckoutPage';
 import OrderSuccessPage from './pages/OrderSuccessPage';
+import OrdersPage from './pages/admin/OrdersPage';
+import OrderDetailsPage from './pages/admin/OrderDetailsPage';
+import DashboardPage from './pages/admin/DashboardPage';
+
 // Create a client
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -62,10 +65,11 @@ createRoot(document.getElementById('root')!).render(
                   <DashboardLayout />
                 </ProtectedRoute>
               }>
-                <Route index element={<DashboardHomepage />} />
+                <Route index element={<DashboardPage />} />
                 <Route path="products" element={<ProductsPage />} />
                 <Route path="categories" element={<CategoriesPage />} />
-                <Route path="orders" element={<div>Orders Page</div>} />
+                <Route path="orders" element={<OrdersPage />} />
+                <Route path="orders/:orderId" element={<OrderDetailsPage />} />
                 <Route path="wishlist" element={<WishlistAnalyticsPage />} />
                 <Route path="settings" element={<SettingsPage />} />
               </Route>
