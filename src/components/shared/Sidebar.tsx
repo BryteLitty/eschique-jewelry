@@ -1,5 +1,5 @@
 import { Link, useLocation } from 'react-router-dom';
-import { LayoutDashboard, ShoppingBag, Heart, Settings, LogOut, Package, Tags } from 'lucide-react';
+import { LayoutDashboard, ShoppingBag, Heart, Settings, LogOut, Package, Tags, Users } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import { cn } from '../../lib/utils';
 
@@ -24,22 +24,27 @@ const Sidebar = () => {
         href: '/dashboard/categories',
         icon: Tags
       },
+      {
+        name: 'Orders',
+        href: '/dashboard/orders',
+        icon: ShoppingBag
+      },
+      {
+        name: 'Users',
+        href: '/dashboard/users',
+        icon: Users
+      },
+      {
+        name: 'Wishlist Analytics',
+        href: '/dashboard/wishlist',
+        icon: Heart
+      },
+      {
+        name: 'Settings',
+        href: '/dashboard/settings',
+        icon: Settings
+      }
     ] : []),
-    {
-      name: 'Orders',
-      href: '/dashboard/orders',
-      icon: ShoppingBag
-    },
-    {
-      name: 'Wishlist',
-      href: '/dashboard/wishlist',
-      icon: Heart
-    },
-    {
-      name: 'Settings',
-      href: '/dashboard/settings',
-      icon: Settings
-    }
   ];
 
   return (

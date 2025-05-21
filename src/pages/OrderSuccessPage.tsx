@@ -41,14 +41,14 @@ export default function OrderSuccessPage() {
 
         <div className="space-y-4 pt-6">
           <Button
-            onClick={() => navigate('/orders')}
+            onClick={() => navigate('/profile/orders')}
             variant="outline"
             className="w-full"
           >
             View My Orders
           </Button>
           <Button
-            onClick={() => navigate('/shop')}
+            onClick={() => navigate('/products')}
             className="w-full"
           >
             Continue Shopping

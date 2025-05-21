@@ -5,6 +5,7 @@ import * as z from "zod";
 import { Link, useNavigate } from "react-router-dom";
 import { Eye, EyeOff } from "lucide-react";
 import { supabase } from "../../lib/supabase";
+import { useToast } from "../../hooks/useToast";
 
 import { Button } from "../ui/button";
 import {
@@ -34,6 +35,7 @@ const SignUpForm = () => {
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const navigate = useNavigate();
+  const { toast } = useToast();
 
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
@@ -73,17 +75,34 @@ const SignUpForm = () => {
               full_name: values.fullName,
               email: values.email,
               is_admin: false,
+              updated_at: new Date().toISOString(),
             },
-          ]);
+          ])
+          .select()
+          .single();
 
-        if (profileError) throw profileError;
+        if (profileError) {
+          console.error('Profile creation error:', profileError);
+          throw new Error('Failed to create user profile');
+        }
       }
+
+      // Show success message
+      toast({
+        title: "Success",
+        description: "Account created successfully! Please check your email for verification.",
+      });
 
       // Redirect to login page on success
       navigate('/login');
     } catch (error) {
       console.error('Signup error:', error);
       setError(error instanceof Error ? error.message : 'An error occurred during signup');
+      toast({
+        title: "Error",
+        description: error instanceof Error ? error.message : 'An error occurred during signup',
+        variant: "destructive",
+      });
     } finally {
       setIsLoading(false);
     }

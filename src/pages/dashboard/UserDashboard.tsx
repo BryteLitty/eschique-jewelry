@@ -1,19 +1,98 @@
 import { useAuth } from '../../contexts/AuthContext';
 import { Card, CardContent, CardHeader, CardTitle } from "../../components/ui/card";
 import { Button } from "../../components/ui/button";
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { Settings, ShoppingBag, Heart, Package, CreditCard, MapPin, User as UserIcon } from 'lucide-react';
+import { useEffect, useState } from 'react';
+import { supabase } from '../../lib/supabase';
+import { cn } from '../../lib/utils';
 
 const UserDashboard = () => {
   const { user } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
+  const [orderCount, setOrderCount] = useState(0);
+  const [wishlistCount, setWishlistCount] = useState(0);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const fetchUserMetrics = async () => {
+      if (!user) return;
+
+      try {
+        // Fetch order count
+        const { count: orders, error: orderError } = await supabase
+          .from('orders')
+          .select('*', { count: 'exact', head: true })
+          .eq('user_id', user.id);
+
+        if (orderError) throw orderError;
+
+        // Fetch wishlist count
+        const { count: wishlist, error: wishlistError } = await supabase
+          .from('wishlist_items')
+          .select('*', { count: 'exact', head: true })
+          .eq('user_id', user.id);
+
+        if (wishlistError) throw wishlistError;
+
+        setOrderCount(orders || 0);
+        setWishlistCount(wishlist || 0);
+      } catch (error) {
+        console.error('Error fetching user metrics:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchUserMetrics();
+
+    // Subscribe to changes
+    const ordersSubscription = supabase
+      .channel('orders_changes')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'orders',
+          filter: `user_id=eq.${user?.id}`
+        },
+        () => {
+          fetchUserMetrics();
+        }
+      )
+      .subscribe();
+
+    const wishlistSubscription = supabase
+      .channel('wishlist_changes')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'wishlist_items',
+          filter: `user_id=eq.${user?.id}`
+        },
+        () => {
+          fetchUserMetrics();
+        }
+      )
+      .subscribe();
+
+    return () => {
+      ordersSubscription.unsubscribe();
+      wishlistSubscription.unsubscribe();
+    };
+  }, [user]);
 
   const quickActions = [
     {
       title: 'My Orders',
       description: 'View and track your orders',
       icon: Package,
-      onClick: () => navigate('/orders'),
+      onClick: () => navigate('/profile/orders'),
+      href: '/profile/orders',
       color: 'bg-blue-50 text-blue-600',
     },
     {
@@ -21,13 +100,15 @@ const UserDashboard = () => {
       description: 'View your saved items',
       icon: Heart,
       onClick: () => navigate('/wishlist'),
+      href: '/wishlist',
       color: 'bg-pink-50 text-pink-600',
     },
     {
       title: 'Settings',
       description: 'Manage your account settings',
       icon: Settings,
-      onClick: () => navigate('/settings'),
+      onClick: () => navigate('/profile/settings'),
+      href: '/profile/settings',
       color: 'bg-purple-50 text-purple-600',
     },
   ];
@@ -35,13 +116,13 @@ const UserDashboard = () => {
   const stats = [
     {
       title: 'Total Orders',
-      value: '0',
+      value: loading ? '...' : orderCount.toString(),
       icon: ShoppingBag,
       color: 'bg-green-50 text-green-600',
     },
     {
       title: 'Wishlist Items',
-      value: '0',
+      value: loading ? '...' : wishlistCount.toString(),
       icon: Heart,
       color: 'bg-pink-50 text-pink-600',
     },
@@ -154,7 +235,12 @@ const UserDashboard = () => {
                 <button
                   key={action.title}
                   onClick={action.onClick}
-                  className="w-full flex items-center space-x-4 p-4 rounded-lg hover:bg-gray-50 transition-colors"
+                  className={cn(
+                    "w-full flex items-center space-x-4 p-4 rounded-lg transition-colors",
+                    location.pathname === action.href
+                      ? "bg-gray-100"
+                      : "hover:bg-gray-50"
+                  )}
                 >
                   <div className={`p-3 rounded-lg ${action.color}`}>
                     <action.icon className="h-6 w-6" />
@@ -178,13 +264,17 @@ const UserDashboard = () => {
         <CardContent>
           <div className="text-center py-12">
             <ShoppingBag className="h-16 w-16 text-[#666666] mx-auto mb-4" />
-            <h3 className="text-lg font-medium mb-2">No orders yet</h3>
-            <p className="text-[#666666] mb-6">Start shopping to see your orders here</p>
+            <h3 className="text-lg font-medium mb-2">
+              {orderCount === 0 ? "No orders yet" : `You have ${orderCount} order${orderCount === 1 ? '' : 's'}`}
+            </h3>
+            <p className="text-[#666666] mb-6">
+              {orderCount === 0 ? "Start shopping to see your orders here" : "View all your orders for more details"}
+            </p>
             <Button 
-              onClick={() => navigate('/products')}
+              onClick={() => navigate(orderCount === 0 ? '/products' : '/orders')}
               className="bg-[#8B5E3C] hover:bg-[#8B5E3C]/90"
             >
-              Start Shopping
+              {orderCount === 0 ? 'Start Shopping' : 'View All Orders'}
             </Button>
           </div>
         </CardContent>

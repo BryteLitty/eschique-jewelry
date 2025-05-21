@@ -10,6 +10,13 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '.
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../../components/ui/table';
 import { useToast } from '../../hooks/useToast';
 import { Link } from 'react-router-dom';
+import { useAuth } from '../../contexts/AuthContext';
+
+interface User {
+  id: string;
+  email: string;
+  full_name: string;
+}
 
 interface Order {
   id: string;
@@ -31,25 +38,140 @@ export default function OrdersPage() {
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const { toast } = useToast();
+  const { user, isAdmin } = useAuth();
 
   useEffect(() => {
-    fetchOrders();
-  }, []);
+    console.log('Auth state:', { 
+      isAdmin, 
+      userId: user?.id,
+      email: user?.email,
+      role: user?.role
+    });
+    
+    if (isAdmin) {
+      fetchOrders();
+    } else {
+      console.log('Not admin, skipping fetch');
+    }
+  }, [isAdmin, user]);
 
   const fetchOrders = async () => {
     try {
+      console.log('Fetching orders as admin...');
+      
+      // First, verify admin status in database
+      const { data: userData, error: userError } = await supabase
+        .from('users')
+        .select('is_admin, email')
+        .eq('id', user?.id)
+        .single();
+
+      if (userError) {
+        console.error('Error checking admin status:', userError);
+        throw userError;
+      }
+
+      console.log('Admin status check:', {
+        userData,
+        userId: user?.id
+      });
+
+      if (!userData?.is_admin) {
+        console.error('User is not an admin in the database');
+        return;
+      }
+
+      // Try using the get_all_orders function first
+      console.log('Attempting to fetch orders using get_all_orders function...');
+      const { data: allOrders, error: funcError } = await supabase
+        .rpc('get_all_orders');
+
+      console.log('get_all_orders attempt:', {
+        success: !funcError,
+        error: funcError,
+        orderCount: allOrders?.length || 0
+      });
+
+      if (!funcError && allOrders && allOrders.length > 0) {
+        // Transform the data to match the expected Order interface
+        const formattedOrders = allOrders.map((order: {
+          id: string;
+          order_number: string;
+          user_id: string;
+          total_amount: number;
+          status: Order['status'];
+          created_at: string;
+          user_email: string;
+          user_full_name: string;
+        }) => ({
+          ...order,
+          user: {
+            email: order.user_email,
+            full_name: order.user_full_name
+          }
+        }));
+        setOrders(formattedOrders);
+        setLoading(false);
+        return;
+      }
+
+      // If function call fails, try regular query
+      console.log('Falling back to regular query...');
       const { data, error } = await supabase
         .from('orders')
-        .select(`
-          *,
-          user:users (
-            email,
-            full_name
-          )
-        `)
+        .select('*, user:users(email, full_name)')
         .order('created_at', { ascending: false });
 
-      if (error) throw error;
+      console.log('Orders fetch attempt:', {
+        success: !error,
+        error,
+        orderCount: data?.length || 0
+      });
+
+      if (error) {
+        throw error;
+      }
+
+      if (!data || data.length === 0) {
+        // Try without the join as a last resort
+        console.log('Trying simplified query without join...');
+        const { data: basicData, error: basicError } = await supabase
+          .from('orders')
+          .select('*')
+          .order('created_at', { ascending: false });
+
+        console.log('Basic orders fetch:', {
+          success: !basicError,
+          error: basicError,
+          orderCount: basicData?.length || 0
+        });
+
+        if (basicError) throw basicError;
+        if (basicData && basicData.length > 0) {
+          // Fetch user details separately
+          const userIds = [...new Set(basicData.map(order => order.user_id))];
+          const { data: users, error: usersError } = await supabase
+            .from('users')
+            .select('id, email, full_name')
+            .in('id', userIds);
+
+          if (usersError) throw usersError;
+
+          const userMap = (users || []).reduce<Record<string, User>>((acc, user) => {
+            acc[user.id] = user;
+            return acc;
+          }, {});
+
+          const ordersWithUsers = basicData.map(order => ({
+            ...order,
+            user: userMap[order.user_id] || { email: 'Unknown', full_name: 'Unknown' }
+          }));
+
+          setOrders(ordersWithUsers);
+          return;
+        }
+      }
+
       setOrders(data || []);
     } catch (error) {
       console.error('Error fetching orders:', error);

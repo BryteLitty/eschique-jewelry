@@ -69,33 +69,8 @@ export function usePaystack(): UsePaystackReturn {
     setIsProcessing(true);
 
     try {
-      // Create order first
-      const orderData: CreateOrderData = {
-        user_id: user.id,
-        order_number: `ORD-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
-        total_amount: config.amount / 100, // Convert from pesewas to cedis
-        status: 'pending' as OrderStatus,
-        payment_status: 'pending' as PaymentStatus,
-        shipping_address: config.metadata?.shipping_address || {
-          full_name: '',
-          address_line1: '',
-          address_line2: '',
-          city: '',
-          state: '',
-          postal_code: '',
-          country: '',
-          phone: '',
-        },
-        order_items: config.metadata?.order_items?.map(item => ({
-          product_id: item.product_id,
-          quantity: item.quantity,
-          unit_price: item.price
-        })) || []
-      };
-
-      console.log('Creating order with data:', orderData);
-      const order = await orderService.createOrder(orderData);
-      console.log('Order created successfully:', order);
+      // Generate order reference
+      const orderRef = `ORD-${Date.now()}-${Math.floor(Math.random() * 1000)}`;
 
       // Initialize Paystack payment
       const handler = new PaystackPop();
@@ -105,34 +80,49 @@ export function usePaystack(): UsePaystackReturn {
           email: config.email,
           amount: config.amount,
           currency: config.currency || 'GHS',
-          ref: order.order_number,
+          ref: orderRef,
           metadata: {
             ...config.metadata,
-            order_id: order.id,
-            order_number: order.order_number
+            order_ref: orderRef
           },
           onSuccess: async (transaction) => {
             try {
-              // Update both payment status and order status
-              const updatedOrder = await orderService.updatePaymentStatus(order.id, 'paid');
-              console.log('Payment status updated:', updatedOrder);
+              // Create order with paid status after successful payment
+              const orderData: CreateOrderData = {
+                user_id: user.id,
+                order_number: orderRef,
+                total_amount: config.amount / 100, // Convert from pesewas to cedis
+                status: 'processing' as OrderStatus, // Set to processing immediately
+                payment_status: 'paid' as PaymentStatus, // Set to paid immediately
+                shipping_address: config.metadata?.shipping_address || {
+                  full_name: '',
+                  address_line1: '',
+                  address_line2: '',
+                  city: '',
+                  state: '',
+                  postal_code: '',
+                  country: '',
+                  phone: '',
+                },
+                order_items: config.metadata?.order_items?.map(item => ({
+                  product_id: item.product_id,
+                  quantity: item.quantity,
+                  unit_price: item.price
+                })) || []
+              };
 
-              // Update order status to processing
-              const finalOrder = await orderService.updateOrderStatus(order.id, 'processing');
-              console.log('Order status updated:', finalOrder);
+              console.log('Creating order after successful payment:', orderData);
+              const order = await orderService.createOrder(orderData);
+              console.log('Order created successfully:', order);
               
-              // Resolve the promise with the transaction and final order state
-              resolve({ transaction, order: finalOrder });
-            } catch (error) {
-              console.error('Error in payment success flow:', error);
-              // If status updates fail, still resolve with the transaction and original order
               resolve({ transaction, order });
+            } catch (error) {
+              console.error('Error creating order after successful payment:', error);
+              reject(error);
             }
           },
           onCancel: () => {
             console.log('Payment cancelled');
-            // Update payment status to failed
-            orderService.updatePaymentStatus(order.id, 'failed').catch(console.error);
             reject(new Error('Payment cancelled'));
           },
         });

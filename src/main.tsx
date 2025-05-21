@@ -3,7 +3,7 @@ import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
 import { Toaster } from 'sonner'
 import './index.css'
-import HomePage from './pages/Homepage'
+import HomePage from './pages/HomePage'
 import SignUpPage from './pages/SignUpPage';
 import LoginPage from './pages/LoginPage';
 import ForgotPasswordPage from './pages/ForgotPasswordPage';
@@ -30,6 +30,8 @@ import OrderSuccessPage from './pages/OrderSuccessPage';
 import OrdersPage from './pages/admin/OrdersPage';
 import OrderDetailsPage from './pages/admin/OrderDetailsPage';
 import DashboardPage from './pages/admin/DashboardPage';
+import UsersPage from './pages/admin/UsersPage';
+import MyOrdersPage from './pages/MyOrdersPage';
 
 // Create a client
 const queryClient = new QueryClient({
@@ -70,6 +72,7 @@ createRoot(document.getElementById('root')!).render(
                 <Route path="categories" element={<CategoriesPage />} />
                 <Route path="orders" element={<OrdersPage />} />
                 <Route path="orders/:orderId" element={<OrderDetailsPage />} />
+                <Route path="users" element={<UsersPage />} />
                 <Route path="wishlist" element={<WishlistAnalyticsPage />} />
                 <Route path="settings" element={<SettingsPage />} />
               </Route>
@@ -82,7 +85,7 @@ createRoot(document.getElementById('root')!).render(
               }>
                 <Route index element={<UserDashboard />} />
                 <Route path="settings" element={<SettingsPage />} />
-                <Route path="orders" element={<div>Order History</div>} />
+                <Route path="orders" element={<MyOrdersPage />} />
               </Route>
               <Route path="/cart" element={
                 <ProtectedRoute>
@@ -107,6 +110,13 @@ createRoot(document.getElementById('root')!).render(
 
               {/* Redirect /account to /profile */}
               <Route path="/account" element={<Navigate to="/profile" replace />} />
+
+              {/* My Orders Route */}
+              <Route path="/orders" element={
+                <ProtectedRoute>
+                  <MyOrdersPage />
+                </ProtectedRoute>
+              } />
 
               {/* 404 Route - Must be last */}
               <Route path="*" element={<NotFound />} />
