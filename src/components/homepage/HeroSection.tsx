@@ -25,17 +25,17 @@ const HeroSection = () => {
         
         <div className="flex flex-col sm:flex-row gap-4">
           <Link 
-            to="/shop" 
+            to="/products" 
             className="px-8 py-3 bg-[#8B5E3C] text-white font-montserrat font-medium rounded-md hover:bg-[#8B5E3C]/90 transition-colors"
           >
             Shop Collection
           </Link>
-          <Link 
+          {/* <Link 
             to="/about" 
             className="px-8 py-3 bg-white/10 backdrop-blur-sm text-white font-montserrat font-medium rounded-md hover:bg-white/20 transition-colors"
           >
             Our Story
-          </Link>
+          </Link> */}
         </div>
       </div>
     </div>

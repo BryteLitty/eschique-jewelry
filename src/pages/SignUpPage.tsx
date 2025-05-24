@@ -8,7 +8,7 @@ const SignUpPage = () => {
       <Link to="/" className="font-montserrat text-xl font-bold text-[#1A1A1A] mb-8">
          <img src={Logo} alt="Logo" className="h-16" />
       </Link>
-      <SignUpForm />
+      <div className='ml-2 mr-2'><SignUpForm /></div>
    </div>
   )
 }

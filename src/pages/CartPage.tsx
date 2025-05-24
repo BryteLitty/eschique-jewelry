@@ -165,7 +165,7 @@ const CartPage = () => {
                     <span>•</span>
                     <span>Mastercard</span>
                     <span>•</span>
-                    <span>PayPal</span>
+                    <span>Mobile Money</span>
                   </div>
                 </div>
               </div>

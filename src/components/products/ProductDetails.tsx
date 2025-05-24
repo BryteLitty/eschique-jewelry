@@ -108,7 +108,7 @@ const ProductDetails = ({ product }: ProductDetailsProps) => {
               </p>
             </div>
 
-            <p className="text-gray-600">{product.description}</p>
+            <p className="text-gray-600 text-2xl">{product.description}</p>
 
             {/* Quantity Selector */}
             <div className="flex items-center gap-4">

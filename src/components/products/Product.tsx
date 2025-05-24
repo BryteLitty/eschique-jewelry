@@ -106,16 +106,16 @@ const Product = ({ product }: ProductCardProps) => {
           onClick={handleProductClick}
         >
           <div className="space-y-0.5 sm:space-y-1">
-            <h3 className="font-semibold text-xs sm:text-sm text-[#1A1A1A] line-clamp-1">{product.name}</h3>
-            <p className="text-[10px] sm:text-xs text-[#666666] line-clamp-1 sm:line-clamp-2">{product.description}</p>
-            <p className="text-xs sm:text-sm font-bold text-[#1A1A1A]">
+            <h3 className="font-extrabold text-2xl md:text-1xl text-[#1A1A1A] line-clamp-1">{product.name}</h3>
+            <p className="text-lg md:text-1xl font-bold text-[#666666] line-clamp-1 sm:line-clamp-2">{product.description}</p>
+            <p className="text-lg md:text-1xl font-extrabold text-[#1A1A1A]">
               GH₵ {product.price.toFixed(2)}
             </p>
           </div>
         </div>
         <div className="p-1.5 sm:p-2.5 pt-0">
           <Button 
-            className="w-full bg-[#1A1A1A] text-white hover:bg-[#1A1A1A]/90 h-8 sm:h-12 text-xs sm:text-sm cursor-pointer"
+            className="w-full bg-[#1A1A1A] text-white hover:bg-[#1A1A1A]/90 h-10 sm:h-12 text-xs sm:text-sm cursor-pointer"
             disabled={!product.in_stock || addToCart.isPending}
             size="lg"
             onClick={handleAddToCart}

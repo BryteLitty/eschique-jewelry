@@ -2,7 +2,7 @@ import { useAuth } from '../../contexts/AuthContext';
 import { Card, CardContent, CardHeader, CardTitle } from "../../components/ui/card";
 import { Button } from "../../components/ui/button";
 import { useNavigate, useLocation } from 'react-router-dom';
-import { Settings, ShoppingBag, Heart, Package, CreditCard, MapPin, User as UserIcon } from 'lucide-react';
+import { Settings, ShoppingBag, Heart, Package, CreditCard, MapPin, User as UserIcon, Menu, X } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { supabase } from '../../lib/supabase';
 import { cn } from '../../lib/utils';
@@ -14,6 +14,7 @@ const UserDashboard = () => {
   const [orderCount, setOrderCount] = useState(0);
   const [wishlistCount, setWishlistCount] = useState(0);
   const [loading, setLoading] = useState(true);
+  const [sidebarOpen, setSidebarOpen] = useState(false);
 
   useEffect(() => {
     const fetchUserMetrics = async () => {
@@ -136,6 +137,37 @@ const UserDashboard = () => {
 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      {/* Hamburger for Sidebar (Mobile)
+      <div className="md:hidden flex justify-end mb-4">
+        <button
+          onClick={() => setSidebarOpen(true)}
+          className="p-2 rounded-md bg-[#8B5E3C] text-white focus:outline-none"
+          aria-label="Open sidebar"
+        >
+          <Menu className="w-7 h-7" />
+        </button>
+      </div> */}
+      {/* Sidebar Drawer */}
+      {sidebarOpen && (
+        <div className="fixed inset-0 z-50 flex md:hidden">
+          <div className="fixed inset-0 bg-black/40" onClick={() => setSidebarOpen(false)} />
+          <aside className="relative w-64 bg-white h-full shadow-xl p-6 flex flex-col">
+            <button
+              onClick={() => setSidebarOpen(false)}
+              className="absolute top-2 right-2 text-gray-500 hover:text-[#8B5E3C]"
+              aria-label="Close sidebar"
+            >
+              <X className="w-6 h-6" />
+            </button>
+            <nav className="mt-8 space-y-4">
+              <button onClick={() => {navigate('/profile'); setSidebarOpen(false);}} className="w-full text-left py-2 px-3 rounded hover:bg-gray-100">Profile</button>
+              <button onClick={() => {navigate('/profile/orders'); setSidebarOpen(false);}} className="w-full text-left py-2 px-3 rounded hover:bg-gray-100">Orders</button>
+              <button onClick={() => {navigate('/profile/settings'); setSidebarOpen(false);}} className="w-full text-left py-2 px-3 rounded hover:bg-gray-100">Settings</button>
+            </nav>
+          </aside>
+        </div>
+      )}
+
       {/* Welcome Section */}
       <div className="bg-gradient-to-r from-[#8B5E3C] to-[#A67B5B] rounded-lg p-8 text-white mb-8">
         <div className="flex items-center space-x-4">
@@ -143,7 +175,7 @@ const UserDashboard = () => {
             <UserIcon className="h-8 w-8" />
           </div>
           <div>
-            <h1 className="text-3xl font-bold">Welcome back, {user?.user_metadata?.full_name || 'User'}</h1>
+            <h1 className="text-[20px] md:text-3xl font-bold">Welcome back, {user?.user_metadata?.full_name || 'User'}</h1>
             <p className="text-white/80 mt-1">Manage your account and view your orders</p>
           </div>
         </div>
@@ -215,7 +247,7 @@ const UserDashboard = () => {
               </div>
               <Button 
                 variant="outline" 
-                onClick={() => navigate('/settings')}
+                onClick={() => navigate('/profile/settings')}
                 className="w-full"
               >
                 Edit Profile
@@ -283,4 +315,4 @@ const UserDashboard = () => {
   );
 };
 
-export default UserDashboard; 
+export default UserDashboard;

@@ -50,7 +50,7 @@ const Header = () => {
       <div className="container mx-auto px-4 h-16 flex items-center justify-between">
         {/* Logo */}
         <Link to="/" className="font-montserrat text-xl font-bold text-[#1A1A1A]">
-          <img src={Logo} alt="Logo" className="h-16" />
+          <img src={Logo} alt="Logo" className="h-12 sm:h-16" />
         </Link>
 
         {/* Navigation */}
