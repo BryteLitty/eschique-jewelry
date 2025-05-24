@@ -2,7 +2,7 @@ import { useAuth } from '../../contexts/AuthContext';
 import { Card, CardContent, CardHeader, CardTitle } from "../../components/ui/card";
 import { Button } from "../../components/ui/button";
 import { useNavigate, useLocation } from 'react-router-dom';
-import { Settings, ShoppingBag, Heart, Package, CreditCard, MapPin, User as UserIcon, Menu, X } from 'lucide-react';
+import { Settings, ShoppingBag, Heart, Package, CreditCard, MapPin, User as UserIcon, X } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { supabase } from '../../lib/supabase';
 import { cn } from '../../lib/utils';
